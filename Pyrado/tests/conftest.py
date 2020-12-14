@@ -32,25 +32,21 @@ This file is found by pytest and contains fixtures (i.e., common defaults) that 
 import multiprocessing as mp
 
 from pyrado.domain_randomization.domain_parameter import (
-    UniformDomainParam,
-    NormalDomainParam,
-    MultivariateNormalDomainParam,
     DomainParam,
+    MultivariateNormalDomainParam,
+    NormalDomainParam,
+    UniformDomainParam,
 )
 from pyrado.environments.one_step.catapult import CatapultSim
 from pyrado.environments.one_step.rosenbrock import RosenSim
-from pyrado.environments.pysim.ball_on_beam import (BallOnBeamDiscSim,
-                                                    BallOnBeamSim)
+from pyrado.environments.pysim.ball_on_beam import BallOnBeamDiscSim, BallOnBeamSim
 from pyrado.environments.pysim.one_mass_oscillator import OneMassOscillatorSim
 from pyrado.environments.pysim.pendulum import PendulumSim
 from pyrado.environments.pysim.quanser_ball_balancer import QBallBalancerSim
-from pyrado.environments.pysim.quanser_cartpole import (QCartPoleStabSim,
-                                                        QCartPoleSwingUpSim)
-from pyrado.environments.pysim.quanser_qube import (QQubeStabSim,
-                                                    QQubeSwingUpSim)
+from pyrado.environments.pysim.quanser_cartpole import QCartPoleStabSim, QCartPoleSwingUpSim
+from pyrado.environments.pysim.quanser_qube import QQubeStabSim, QQubeSwingUpSim
 from pyrado.environments.quanser.quanser_ball_balancer import QBallBalancerReal
-from pyrado.environments.quanser.quanser_cartpole import (QCartPoleStabReal,
-                                                          QCartPoleSwingUpReal)
+from pyrado.environments.quanser.quanser_cartpole import QCartPoleStabReal, QCartPoleSwingUpReal
 from pyrado.environments.quanser.quanser_qube import QQubeReal
 from pyrado.policies.features import *
 from pyrado.policies.feed_forward.fnn import FNNPolicy
@@ -59,9 +55,7 @@ from pyrado.policies.feed_forward.two_headed_fnn import TwoHeadedFNNPolicy
 from pyrado.policies.recurrent.adn import ADNPolicy, pd_cubic
 from pyrado.policies.recurrent.neural_fields import NFPolicy
 from pyrado.policies.recurrent.rnn import GRUPolicy, LSTMPolicy, RNNPolicy
-from pyrado.policies.recurrent.two_headed_rnn import (TwoHeadedGRUPolicy,
-                                                      TwoHeadedLSTMPolicy,
-                                                      TwoHeadedRNNPolicy)
+from pyrado.policies.recurrent.two_headed_rnn import TwoHeadedGRUPolicy, TwoHeadedLSTMPolicy, TwoHeadedRNNPolicy
 from pyrado.policies.special.dummy import DummyPolicy, IdlePolicy
 from pyrado.policies.special.time import TimePolicy, TraceableTimePolicy
 
@@ -71,21 +65,14 @@ to.set_default_dtype(to.double)
 # Check if RcsPySim, Bullet, and Vortex are available
 try:
     import rcsenv
-    from pyrado.environments.rcspysim.ball_in_tube import (
-        BallInTubeIKActivationSim, BallInTubeVelDSSim)
-    from pyrado.environments.rcspysim.ball_on_plate import (BallOnPlate2DSim,
-                                                            BallOnPlate5DSim)
-    from pyrado.environments.rcspysim.box_flipping import (
-        BoxFlippingIKActivationSim, BoxFlippingVelDSSim)
-    from pyrado.environments.rcspysim.box_lifting import (BoxLiftingPosDSSim,
-                                                          BoxLiftingVelDSSim)
-    from pyrado.environments.rcspysim.box_shelving import (BoxShelvingPosDSSim,
-                                                           BoxShelvingVelDSSim)
+    from pyrado.environments.rcspysim.ball_in_tube import BallInTubeIKActivationSim, BallInTubeVelDSSim
+    from pyrado.environments.rcspysim.ball_on_plate import BallOnPlate2DSim, BallOnPlate5DSim
+    from pyrado.environments.rcspysim.box_flipping import BoxFlippingIKActivationSim, BoxFlippingVelDSSim
+    from pyrado.environments.rcspysim.box_lifting import BoxLiftingPosDSSim, BoxLiftingVelDSSim
+    from pyrado.environments.rcspysim.box_shelving import BoxShelvingPosDSSim, BoxShelvingVelDSSim
     from pyrado.environments.rcspysim.mp_blending import MPBlendingSim
-    from pyrado.environments.rcspysim.planar_3_link import (
-        Planar3LinkIKActivationSim, Planar3LinkTASim)
-    from pyrado.environments.rcspysim.planar_insert import (
-        PlanarInsertIKActivationSim, PlanarInsertTASim)
+    from pyrado.environments.rcspysim.planar_3_link import Planar3LinkIKActivationSim, Planar3LinkTASim
+    from pyrado.environments.rcspysim.planar_insert import PlanarInsertIKActivationSim, PlanarInsertTASim
     from pyrado.environments.rcspysim.quanser_qube import QQubeRcsSim
     from pyrado.environments.rcspysim.target_tracking import TargetTrackingSim
 
