@@ -21,7 +21,6 @@ jobs:
           context: .
           load: true
           tags: |
-            simurlacra/simurlacra:${{ matrix.flavor }}
             simurlacra:test
           build-args: |
             OPTION=${{ matrix.flavor }}
