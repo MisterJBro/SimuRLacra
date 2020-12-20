@@ -6,7 +6,7 @@ from sbi.inference import simulate_for_sbi
 from sbi.inference.posteriors.direct_posterior import DirectPosterior
 import log_prob_plot
 
-
+# Test
 def train_lfi(
     simulator,
     inference,
