@@ -43,7 +43,8 @@ def train_lfi(
     return posterior
 
 
-def evaluate_lfi(simulator: Callable, posterior: DirectPosterior, observations, num_samples: int = 1000):
+def evaluate_lfi(simulator: Callable, posterior: DirectPosterior, observations,
+                 num_samples: int = 1000, comp_log_prob=False, comp_trajectory=False):
     """
         INPUT:
     ...
@@ -54,6 +55,7 @@ def evaluate_lfi(simulator: Callable, posterior: DirectPosterior, observations, 
     log_prob:       to.Tensor[?, ?]
     trajectories:   to.Tensor[num_observations, num_samples, trajectory_size]
     """
+    proposals, log_prob, trajectories = None, None, None
     num_observations = observations.shape[0]
     trajectory_size = observations.shape[1]
 
@@ -65,17 +67,19 @@ def evaluate_lfi(simulator: Callable, posterior: DirectPosterior, observations, 
     cnt = 0
     for o in range(num_observations):
         # compute log probability
-        log_prob[o, :] = posterior.log_prob(proposals[o, :, :], x=observations[o, :])
-        for s in range(num_samples):
-            if not s % 10:
-                print(
-                    "\r[train_lfi.py/evaluate_lfi] Observation: ({}|{}), Sample: ({}|{})".format(
-                        o, num_observations, s, num_samples
-                    ),
-                    end="",
-                )
-            # compute trajectories for each observation and every sample
-            trajectories[o, s, :] = simulator(proposals[o, s, :].unsqueeze(0))
+        if comp_log_prob:
+            log_prob[o, :] = posterior.log_prob(proposals[o, :, :], x=observations[o, :])
+        if comp_trajectory:
+            for s in range(num_samples):
+                if not s % 10:
+                    print(
+                        "\r[train_lfi.py/evaluate_lfi] Observation: ({}|{}), Sample: ({}|{})".format(
+                            o, num_observations, s, num_samples
+                        ),
+                        end="",
+                    )
+                # compute trajectories for each observation and every sample
+                trajectories[o, s, :] = simulator(proposals[o, s, :].unsqueeze(0))
         cnt += 1
 
     return proposals, log_prob, trajectories
