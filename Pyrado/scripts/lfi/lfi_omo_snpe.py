@@ -22,10 +22,20 @@ if __name__ == "__main__":
     # define simulator
     simulator = OscillatorTrajectories()
     prior = utils.BoxUniform(low=to.tensor([25.0, 0.05]), high=to.tensor([35.0, 0.15]))
+    obs_theta = prior.sample((5,))
+    x_o = [simulator(param) for param in obs_theta]
+    x_o = to.stack(x_o)
+    print(x_o.shape)
+
+    # x_o = x_o.unsqueeze(0)  # add a second dim for stacking
+    # for i in range(n_observations - 1):
+    #     test_prior = utils.BoxUniform(low=to.tensor([15.0, 0.0]), high=to.tensor([55.0, 1.0]))
+    #     x_o = to.cat([x_o, simulator(test_prior.sample().unsqueeze(0))], dim=0)
 
     # real environment
-    true_params = to.tensor([30, 0.1]).to(dtype=to.float32)
-    x_o = simulator(true_params)
+    # true_params = to.tensor([30, 0.1]).to(dtype=to.float32)
+    # x_o = simulator(true_params)
+    # x_o = [x_o for _ in range(5)]
 
     # define algorithm hyperparameters
     input_length = len(x_o)

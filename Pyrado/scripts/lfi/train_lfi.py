@@ -12,31 +12,34 @@ def train_lfi(
     inference,
     prior,
     x_o,
-    num_samples,
     num_rounds: int = 5,
     num_sim: int = 1000,
     summary: SummaryWriter = None,
     eval_plot: bool = True,
-    num_plot: int = 4,
 ):
-    for _ in range(num_plot):
-        proposal_prior = prior
+    proposal_prior = prior
+    if x_o.ndim == 1:
         for _ in range(num_rounds):
             theta, x = simulate_for_sbi(simulator, proposal_prior, num_simulations=num_sim, simulation_batch_size=1)
             _ = inference.append_simulations(theta, x).train()
             proposal_prior = inference.build_posterior().set_default_x(x_o)
         posterior = proposal_prior
-
-        # plot log prob for different number of simulations
-        if eval_plot == True:
-            samples = posterior.sample((num_samples,), x=x_o)
-            sum_samples = sum(samples) / len(samples)
-            log_prob_plot.add_plot(posterior, sum_samples, x_o, num_sim)
-            num_sim = num_sim * 2
-
-    if eval_plot == True:
-        log_prob_plot.plot_log()
-
+    else:
+        theta, x = simulate_for_sbi(simulator, proposal_prior, num_simulations=num_sim, simulation_batch_size=1)
+        _ = inference.append_simulations(theta, x).train()
+        proposal_prior = inference.build_posterior()
+        if num_rounds > 1:
+            for _ in range(num_rounds - 1):
+                for obs in x_o:
+                    proposal_prior.set_default_x(obs)
+                    theta, x = simulate_for_sbi(simulator, proposal_prior, num_simulations=num_sim,
+                                                simulation_batch_size=1)
+                    _ = inference.append_simulations(theta, x)
+                _ = inference.train()
+                proposal_prior = inference.build_posterior()
+            posterior = proposal_prior
+        else:
+            posterior = proposal_prior
     return posterior
 
 
@@ -57,7 +60,6 @@ def evaluate_lfi(simulator: Callable, posterior: DirectPosterior, observations, 
     # compute proposals for each observation
     proposals = to.stack([posterior.sample((num_samples,), x=obs) for obs in observations], dim=0)
 
-    print()
     trajectories = to.empty((num_observations, num_samples, trajectory_size))
     log_prob = to.empty((num_observations, num_samples))
     cnt = 0
