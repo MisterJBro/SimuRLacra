@@ -27,7 +27,7 @@ jobs:
           cache-from: type=registry,ref=simurlacra/simurlacra:${{ matrix.flavor }}
       - name: Inspect
         run: |
-          docker image inspect myimage:latest
+          docker image inspect simurlacra:test
       - name: Execute tests
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
