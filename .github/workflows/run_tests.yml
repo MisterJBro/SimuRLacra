@@ -25,7 +25,8 @@ jobs:
           cache-from: type=registry,ref=simurlacra/simurlacra:${{ matrix.flavor }}
       - name: Inspect
         run: |
-          find /home/user
+          find ${{github.workspace}}
+          docker image ls
           docker image inspect ${{steps.docker_build.outputs.digest}}
       - name: Execute tests
         env:
