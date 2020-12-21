@@ -56,7 +56,7 @@ WORKDIR /home/user
 # Setup conda
 RUN echo "export PATH=/home/user/miniconda3/bin:$PATH" >> ~/.bashrc
 
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+RUN wget --quiet     https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
     && bash Miniconda3-latest-Linux-x86_64.sh -b \
     && rm Miniconda3-latest-Linux-x86_64.sh
 
@@ -68,7 +68,7 @@ RUN conda update conda \
 WORKDIR /home/user/SimuRLacra
 
 # Create conda env
-RUN conda create -n pyrado python=3.7 blas cmake lapack libgcc-ng mkl patchelf pip setuptools -c conda-forge
+RUN conda create  -q -y -n pyrado python=3.7 blas cmake lapack libgcc-ng mkl patchelf pip setuptools -c conda-forge
 
 SHELL ["conda", "run", "-n", "pyrado", "/bin/bash", "-c"]
 
