@@ -20,12 +20,14 @@ jobs:
         with:
           context: .
           load: true
+          tags: |
+            simurlacra:${{matrix.flavor}}
           build-args: |
             OPTION=${{ matrix.flavor }}
           cache-from: type=registry,ref=simurlacra/simurlacra:${{ matrix.flavor }}
       - name: Inspect
         run: |
-          find ${{github.workspace}}
+          find /home/runner/work
           docker image ls
           docker image inspect ${{steps.docker_build.outputs.digest}}
       - name: Execute tests
