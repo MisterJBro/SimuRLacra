@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        flavor: [blackforest]
+        flavor: [sacher]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -20,20 +20,18 @@ jobs:
         with:
           context: .
           load: true
-          tags: |
-            simurlacra:test
           build-args: |
             OPTION=${{ matrix.flavor }}
           cache-from: type=registry,ref=simurlacra/simurlacra:${{ matrix.flavor }}
       - name: Inspect
         run: |
-          docker image inspect simurlacra:test
+          docker image inspect ${{steps.docker_build.outputs.digest}}
       - name: Execute tests
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
         run: |
           export COVPATH=$(realpath .)
-          docker run --rm -i -v $COVPATH:/cov simurlacra:test conda run -n pyrado bash -c "pytest Pyrado/tests --cov=./Pyrado --cov-report=xml -n 4 --verbose -m 'not visualization'; sudo cp ./coverage.xml /cov"
+          docker run --rm -i -v $COVPATH:/cov ${{steps.docker_build.outputs.digest}} conda run -n pyrado bash -c "pytest Pyrado/tests --cov=./Pyrado --cov-report=xml -n 4 --verbose -m 'not visualization'; sudo cp ./coverage.xml /cov"
           sudo mkdir /home/user/
           sudo mkdir /home/user/SimuRLacra
           sudo ln -s $COVPATH /home/user/SimuRLacra
