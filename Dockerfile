@@ -68,7 +68,7 @@ RUN conda update conda \
 WORKDIR /home/user/SimuRLacra
 
 # Create conda env
-RUN conda create  -q -y -n pyrado python=3.7 blas cmake lapack libgcc-ng mkl patchelf pip setuptools -c conda-forge
+RUN conda create -n pyrado python=3.7 blas cmake lapack libgcc-ng mkl patchelf pip setuptools -c conda-forge -q -y
 
 SHELL ["conda", "run", "-n", "pyrado", "/bin/bash", "-c"]
 
