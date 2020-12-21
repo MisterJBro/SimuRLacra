@@ -3,6 +3,8 @@ name: Publish Docker Images
 on:
   push:
     branches: [master, cicd]
+  schedule:
+    - cron: 0 0 * * 1
 
 jobs:
   build-images:
