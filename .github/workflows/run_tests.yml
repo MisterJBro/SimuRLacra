@@ -25,6 +25,9 @@ jobs:
           build-args: |
             OPTION=${{ matrix.flavor }}
           cache-from: type=registry,ref=simurlacra/simurlacra:${{ matrix.flavor }}
+      - name: Inspect
+        run: |
+          docker image inspect myimage:latest
       - name: Execute tests
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
