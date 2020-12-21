@@ -66,13 +66,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: gh-pages
           FOLDER: public
-
-          echo $PUBLIC
-          ls $PUBLIC
-      - name: Deploy
-        continue-on-error: true
-        uses: JamesIves/github-pages-deploy-action@3.5.9
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: gh-pages
-          FOLDER: public
