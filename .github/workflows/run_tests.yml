@@ -25,7 +25,7 @@ jobs:
           cache-from: type=registry,ref=simurlacra/simurlacra:${{ matrix.flavor }}
       - name: Inspect
         run: |
-          ls -la
+          find /home/user
           docker image inspect ${{steps.docker_build.outputs.digest}}
       - name: Execute tests
         env:
