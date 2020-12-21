@@ -40,7 +40,7 @@ jobs:
           build-args: |
             OPTION=${{ matrix.flavor }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/simurlacra:${{ matrix.flavor }}
-          cache-to: type=inline
+          cache-to: type=inline,mode=max
   build-docs:
     runs-on: ubuntu-latest
     needs: build-images
