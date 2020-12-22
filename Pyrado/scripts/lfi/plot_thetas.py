@@ -44,8 +44,8 @@ def plot_2d_thetas(proposals, obs_thetas=None, marginal_samples=None):
         legend_elements.append(Line2D([0], [0], marker='x', color='black', label='Original Theta', markersize=10))
         cnt = 0
         for obs in obs_thetas:
-            ax.scatter(obs[0], obs[1],
-                       c=colors[cnt], label="Observation theta_{}".format(cnt + 1), marker='x')
+            ax.scatter(obs[0], obs[1], facecolors=colors[cnt],
+                       marker='X', edgecolors='black', s=200)
             cnt += 1
 
     # set axis limits (offset on the edges by 'factor' * 100%)
