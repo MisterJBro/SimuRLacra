@@ -30,10 +30,7 @@ def create_omo_setup():
 
 def create_sbi_algo():
     # Subroutine
-    inference_hparam = dict(
-        max_iter=5,
-        num_sim=10
-    )
+    inference_hparam = dict(max_iter=5, num_sim=10)
     embedding_net = nn.Identity()
     flow = utils.posterior_nn(model="maf", hidden_features=10, num_transforms=2, embedding_net=embedding_net)
     return flow, inference_hparam
@@ -67,28 +64,30 @@ if __name__ == "__main__":
         # define normalizing flow
         flow, inference_hparam = create_sbi_algo()
         # instantiate inference Alogorithm
-        inference = LFI(save_dir=ex_dir,
-                        simulator=simulator,
-                        flow=flow,
-                        inference=SNPE,
-                        prior=prior,
-                        params_names=params_names,
-                        num_sim=10,
-                        max_iter=5)
+        inference = LFI(
+            save_dir=ex_dir,
+            simulator=simulator,
+            flow=flow,
+            inference=SNPE,
+            prior=prior,
+            params_names=params_names,
+            **inference_hparam,
+        )
         # train the LFI algorithm
         inference.step(snapshot_mode="latest", meta_info=dict(rollouts_real=ro_real))
-        sample_params, _, _ = inference.evaluate(obs_traj=ro_real,
-                                                 num_samples=num_samples,
-                                                 compute_quantity={"sample_params": True})
+        sample_params, _, _ = inference.evaluate(
+            obs_traj=ro_real, num_samples=num_samples, compute_quantity={"sample_params": True}
+        )
     else:
         # TODO: Currently not working, might be due to the sbi toolbox
         algo_name = "SNPE"
         ex_dir = ask_for_experiment() if args.dir is None else args.dir
-        inference = LFI(save_dir=ex_dir,
-                        simulator=simulator,
-                        prior=prior,
-                        params_names=params_names,
-                        )
+        inference = LFI(
+            save_dir=ex_dir,
+            simulator=simulator,
+            prior=prior,
+            params_names=params_names,
+        )
 
         # load a saved posterior for inference instead of training it
         posterior = pyrado.load(None, "posterior", "pt", ex_dir)
@@ -97,9 +96,9 @@ if __name__ == "__main__":
         inference.set_posterior(posterior)
 
         # generate parameters
-        sample_params, _, _ = inference.evaluate(obs_traj=ro_real,
-                                                 num_samples=num_samples,
-                                                 compute_quantity={"sample_params": True})
+        sample_params, _, _ = inference.evaluate(
+            obs_traj=ro_real, num_samples=num_samples, compute_quantity={"sample_params": True}
+        )
 
     # sample from marginal posterior
     def sample_from_marginal(proposals, s_num=100):
@@ -118,10 +117,8 @@ if __name__ == "__main__":
 
         return to.stack([method(proposals[:, s, :]) for s in range(s_num)], dim=0)
 
-
     # plot useful statistics
-    plot_2d_thetas(sample_params,
-                   obs_thetas=real_params,
-                   marginal_samples=sample_from_marginal(sample_params, s_num=num_samples)
-                   )
+    plot_2d_thetas(
+        sample_params, obs_thetas=real_params, marginal_samples=sample_from_marginal(sample_params, s_num=num_samples)
+    )
     # plot_trajectories(trajectories, n_parameter=2, observation_data=x_o)

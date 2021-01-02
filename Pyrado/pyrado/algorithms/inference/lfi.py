@@ -21,17 +21,25 @@ class EnvSimulator(Callable):
     """
     Mapping from the environment system parameters to a trajectory-based rollout using a control-policy.
     """
-    def __init__(self, env: Env, policy: Policy, param_names: list,):
+
+    def __init__(
+        self,
+        env: Env,
+        policy: Policy,
+        param_names: list,
+    ):
         self.name = env.name
         self.env = env
         self.policy = policy
         self.param_names = param_names
 
     def __call__(self, params):
-        ro = rollout(self.env,
-                     self.policy,
-                     eval=True,
-                     reset_kwargs=dict(domain_param=dict(zip(self.param_names, params.squeeze()))))
+        ro = rollout(
+            self.env,
+            self.policy,
+            eval=True,
+            reset_kwargs=dict(domain_param=dict(zip(self.param_names, params.squeeze()))),
+        )
         return to.tensor(ro.observations).view(-1, 1).squeeze().to(dtype=to.float32)
 
 
@@ -42,19 +50,21 @@ class LFI(LoggerAware):
     likelihood- and density-ratio-estimators. This might be added later.
     Examplary file in '/pyrado/scripts/lfi/....py'
     """
-    def __init__(self,
-                 save_dir: str,
-                 simulator: Callable,
-                 params_names,
-                 prior: Distribution,
-                 inference: Type[PosteriorEstimator] = None,
-                 flow: Callable[[], DirectPosterior] = None,
-                 posterior: DirectPosterior = None,
-                 max_iter: int = 5,
-                 num_sim: int = 1000,
-                 logger: Optional[StepLogger] = None,
-                 save_name: str = "algo",
-                 ):
+
+    def __init__(
+        self,
+        save_dir: str,
+        simulator: Callable,
+        params_names,
+        prior: Distribution,
+        inference: Type[PosteriorEstimator] = None,
+        flow: Callable[[], DirectPosterior] = None,
+        posterior: DirectPosterior = None,
+        max_iter: int = 5,
+        num_sim: int = 1000,
+        logger: Optional[StepLogger] = None,
+        save_name: str = "algo",
+    ):
         self._save_dir = save_dir
         self.posterior = posterior
         self.simulator = simulator
@@ -81,9 +91,7 @@ class LFI(LoggerAware):
 
         self.inference = None
         if inference is not None:
-            self.inference = inference(prior=self.prior,
-                                       density_estimator=flow,
-                                       summary_writer=summary_writer)
+            self.inference = inference(prior=self.prior, density_estimator=flow, summary_writer=summary_writer)
 
     def set_posterior(self, posterior: DirectPosterior):
         """
@@ -105,29 +113,25 @@ class LFI(LoggerAware):
         # set proposal prior
         proposal_prior = self.batch_prior
         if self._curr_iter == 0:
-            theta, x = simulate_for_sbi(self.batch_simulator, proposal_prior,
-                                        num_simulations=self._num_sim,
-                                        simulation_batch_size=1
-                                        )
+            theta, x = simulate_for_sbi(
+                self.batch_simulator, proposal_prior, num_simulations=self._num_sim, simulation_batch_size=1
+            )
             _ = self.inference.append_simulations(theta, x).train()
             proposal_prior = self.inference.build_posterior()
             self._curr_iter += 1
         while self._curr_iter < self._max_iter:
             # generate data to train
             if len(rollouts_real) == 1:
-                theta, x = simulate_for_sbi(self.batch_simulator, proposal_prior,
-                                            num_simulations=self._num_sim,
-                                            simulation_batch_size=1
-                                            )
+                theta, x = simulate_for_sbi(
+                    self.batch_simulator, proposal_prior, num_simulations=self._num_sim, simulation_batch_size=1
+                )
                 self.inference.append_simulations(theta, x)
             else:
                 for ro in rollouts_real:
                     proposal_prior.set_default_x(ro)
-                    theta, x = simulate_for_sbi(self.batch_simulator,
-                                                proposal_prior,
-                                                num_simulations=self._num_sim,
-                                                simulation_batch_size=1
-                                                )
+                    theta, x = simulate_for_sbi(
+                        self.batch_simulator, proposal_prior, num_simulations=self._num_sim, simulation_batch_size=1
+                    )
                     self.inference.append_simulations(theta, x)
 
             _ = self.inference.train()
@@ -138,19 +142,18 @@ class LFI(LoggerAware):
         self.posterior = proposal_prior
         self.make_snapshot(snapshot_mode=snapshot_mode, meta_info=meta_info)
 
-    def evaluate(self,
-                 obs_traj: to.Tensor,
-                 num_samples: int = 1000,
-                 compute_quantity: dict = None,
-                 ):
+    def evaluate(
+        self,
+        obs_traj: to.Tensor,
+        num_samples: int = 1000,
+        compute_quantity: dict = None,
+    ):
         """
         Evaluates the posterior by calculating parameter samples given observed data, its log probability
         and the simulated trajectory.
         """
         # default computations
-        compute_dict = {"log_prob": False,
-                        "sample_params": False,
-                        "sim_traj": False}
+        compute_dict = {"log_prob": False, "sample_params": False, "sim_traj": False}
         if compute_quantity is not None:
             # TODO: raise exception if keys do not fit given quantities
             compute_dict.update(compute_quantity)
