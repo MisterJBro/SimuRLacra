@@ -57,38 +57,34 @@ if __name__ == "__main__":
 
     num_samples = 100
 
+    # create an experiment
+    algo_name = "SNPE"
     if not args.eval:
-        # create an experiment
-        algo_name = "SNPE"
         ex_dir = setup_experiment(simulator.name, f"{algo_name}")
-        # define normalizing flow
-        flow, inference_hparam = create_sbi_algo()
-        # instantiate inference Alogorithm
-        inference = LFI(
-            save_dir=ex_dir,
-            simulator=simulator,
-            flow=flow,
-            inference=SNPE,
-            prior=prior,
-            params_names=params_names,
-            **inference_hparam,
-        )
+    else:
+        ex_dir = ask_for_experiment() if args.dir is None else args.dir
+
+    # setup
+    # define normalizing flow
+    flow, inference_hparam = create_sbi_algo()
+    # instantiate inference Alogorithm
+    inference = LFI(
+        save_dir=ex_dir,
+        simulator=simulator,
+        flow=flow,
+        inference=SNPE,
+        prior=prior,
+        params_names=params_names,
+        **inference_hparam,
+    )
+
+    if not args.eval:
         # train the LFI algorithm
         inference.step(snapshot_mode="latest", meta_info=dict(rollouts_real=ro_real))
         sample_params, _, _ = inference.evaluate(
             obs_traj=ro_real, num_samples=num_samples, compute_quantity={"sample_params": True}
         )
     else:
-        # TODO: Currently not working, might be due to the sbi toolbox
-        algo_name = "SNPE"
-        ex_dir = ask_for_experiment() if args.dir is None else args.dir
-        inference = LFI(
-            save_dir=ex_dir,
-            simulator=simulator,
-            prior=prior,
-            params_names=params_names,
-        )
-
         # load a saved posterior for inference instead of training it
         posterior = pyrado.load(None, "posterior", "pt", ex_dir)
 
