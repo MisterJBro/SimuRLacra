@@ -65,7 +65,7 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000):
 
             # Set dropout and batch normalization layers to the right mode
             t.eval()
-            
+
             # Check for recurrent policy, which requires special handling
             if t.is_recurrent:
                 # Initialize hidden state var

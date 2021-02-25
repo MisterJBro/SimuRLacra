@@ -51,11 +51,11 @@ def get_random_envs(env_count = 10, env_type = ActNormWrapper(QCartPoleSwingUpSi
         NormalDomainParam(name="R_m", mean=dp_nom["R_m"], std=dp_nom["R_m"] / 4, clip_lo=1e-4),
         NormalDomainParam(name="k_m", mean=dp_nom["k_m"], std=dp_nom["k_m"] / 4, clip_lo=1e-4),
         UniformDomainParam(name="B_eq", mean=dp_nom["B_eq"], halfspan=dp_nom["B_eq"] / 4, clip_lo=1e-4),
-        #UniformDomainParam(name="B_pole", mean=dp_nom["B_pole"], halfspan=dp_nom["B_pole"] / 4, clip_lo=1e-4),      
+        #UniformDomainParam(name="B_pole", mean=dp_nom["B_pole"], halfspan=dp_nom["B_pole"] / 4, clip_lo=1e-4),
         # set to 0 for simpler simulation:
-        ConstantDomainParam(name="B_pole", value=0.0), 
+        ConstantDomainParam(name="B_pole", value=0.0),
     )"""
-    
+
     randomizer.randomize(num_samples=env_count)
     params = randomizer.get_params(fmt="dict", dtype="numpy")
 
@@ -74,15 +74,14 @@ if __name__ == "__main__":
     # Environment
     env_hparams = dict(dt=1 / 250.0, max_steps=600)
     #env_type = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
-    env_type = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))       
+    env_type = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))
 
     # Parse command line arguments
     args = get_argparser().parse_args()
 
     for idx, env in enumerate(get_random_envs(env_count = 8, env_type = env_type)):
         print(f'Training teacher: {idx}')
-        
-        
+
         # Experiment (set seed before creating the modules)
         ex_dir = setup_experiment(QCartPoleSwingUpSim.name, f"{PPOGAE.name}_{QCartPoleSwingUpAndBalanceCtrl.name}_teacher_{idx}")
 
@@ -104,7 +103,7 @@ if __name__ == "__main__":
 
         # Subroutine
         algo_hparam = dict(
-            max_iter=50, #50
+            max_iter=50,
             tb_name="ppo",
             traj_len=8_000,
             gamma=0.99,
@@ -130,9 +129,7 @@ if __name__ == "__main__":
         )
 
         # Jeeeha
-        algo.train(snapshot_mode="latest", seed=args.seed)
-        # wird nicht richtig beendet - speichert policy, env, usw nicht 
-        exit()
+        algo.train(snapshot_mode="best", seed=args.seed)
 
         """
         # Experiment (set seed before creating the modules)
