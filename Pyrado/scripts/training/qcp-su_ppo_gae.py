@@ -56,7 +56,7 @@ if __name__ == "__main__":
         gamma=0.99,
         lam=0.97,
         env_num=9,
-        cpu_num=max(9,mp.cpu_count()-1),
+        cpu_num=min(9,mp.cpu_count()-1),
         epoch_num=40,
         device="cpu",
         max_kl=0.05,

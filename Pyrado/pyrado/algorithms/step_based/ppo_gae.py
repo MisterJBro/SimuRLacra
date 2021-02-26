@@ -206,6 +206,7 @@ class PPOGAE(Algorithm):
         super().save_snapshot(meta_info)
 
         pyrado.save(self._expl_strat.policy, "policy", "pt", self.save_dir, meta_info)
+        pyrado.save(self._expl_strat, "expl_strat", "pt", self.save_dir, meta_info)
         pyrado.save(self.critic, "vfcn", "pt", self.save_dir, meta_info)
 
         if meta_info is None:

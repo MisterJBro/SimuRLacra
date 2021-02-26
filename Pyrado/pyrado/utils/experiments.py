@@ -243,15 +243,17 @@ def load_experiment(ex_dir: str, args: Any = None) -> (Union[SimEnv, EnvWrapper]
         # Policy
         policy = pyrado.load(algo.policy, f"{args.policy_name}", "pt", ex_dir, None)
 
-    elif isinstance(algo, PPOGAE):
+    elif algo.name == "ppo_gae":
         # Environment
         env = pyrado.load(None, "env", "pkl", ex_dir, None)
         # Policy
         policy = pyrado.load(algo.policy, f"{args.policy_name}", "pt", ex_dir, None)
         print_cbt(f"Loaded {osp.join(ex_dir, f'{args.policy_name}.pt')}", "g")
-        # Extra (value function)
-        #extra["vfcn"] = pyrado.load(algo.critic.vfcn, f"{args.vfcn_name}", "pt", ex_dir, None)
-        #print_cbt(f"Loaded {osp.join(ex_dir, f'{args.vfcn_name}.pt')}", "g")
+        # Extra (value function, exploration strategy)
+        extra["vfcn"] = pyrado.load(algo.critic, f"{args.vfcn_name}", "pt", ex_dir, None)
+        print_cbt(f"Loaded {osp.join(ex_dir, f'{args.vfcn_name}.pt')}", "g")
+        extra["expl_strat"] = pyrado.load(algo.expl_strat, f"expl_strat", "pt", ex_dir, None)
+        print_cbt(f"Loaded {osp.join(ex_dir, f'expl_strat.pt')}", "g")
 
     else:
         raise pyrado.TypeErr(msg="No matching algorithm name found during loading the experiment!")

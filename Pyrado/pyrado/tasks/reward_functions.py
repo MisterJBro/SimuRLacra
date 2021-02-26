@@ -430,4 +430,5 @@ class QCartPoleSwingUpRewFcn(RewFcn):
             raise pyrado.TypeErr(given=err_a, expected_type=np.ndarray)
 
         # Reward should be roughly between [0, 1]
-        return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (np.abs(err_s[0])))
+        #return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (np.abs(err_s[0])))
+        return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (1 - np.abs(err_s[0] / 0.4)))  

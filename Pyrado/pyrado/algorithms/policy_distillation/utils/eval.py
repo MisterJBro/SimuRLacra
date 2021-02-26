@@ -181,7 +181,7 @@ def save_performance(start, sums, names):
 if __name__ == "__main__":
     # what to do:
     model = 'student.pt'
-    simulate = False#True
+    simulate = True
     swingup = True
 
     freeze_support()
@@ -205,7 +205,8 @@ if __name__ == "__main__":
     #net.load(path=f'{pyrado.TEMP_DIR}/trained/{model}')
 
     ex_dir = ask_for_experiment()
-    env_sim, policy, _ = load_experiment(ex_dir)
+    env_sim, _, extra = load_experiment(ex_dir)
+    expl_strat = extra["expl_strat"]
 
     #env_sim will not be used here, because we want to evaluate the policy on a different environment
     #we can use it, by changing the parameters to the default ones:
@@ -222,17 +223,17 @@ if __name__ == "__main__":
         while not done:
             ro = rollout(
                 env_sim,
-                policy,
+                expl_strat,
                 render_mode=RenderMode(text=False, video=True),
                 eval=True,
                 reset_kwargs=dict(domain_param=param, init_state=state),
             )
             # print_domain_params(env.domain_param)
             print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
-            done, state, param = after_rollout_query(env_sim, policy, ro)
+            done, state, param = after_rollout_query(env_sim, expl_strat, ro)
 
     else:
         # Evaluate
-        check_performance(env_sim, policy, 'student_after', n=1000)
+        check_performance(env_sim, expl_strat, 'student_after', n=1000)
 
     env_sim.close()
