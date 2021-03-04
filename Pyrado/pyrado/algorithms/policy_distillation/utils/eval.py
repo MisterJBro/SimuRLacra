@@ -17,39 +17,7 @@ from pyrado.environments.pysim.quanser_cartpole import QCartPoleStabSim, QCartPo
 from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.utils.data_types import RenderMode
 
-#import pathlib
 from datetime import datetime
-#import time
-
-#from torch._C import T
-
-"""
-def check_net_performance(env, nets, names, max_len=8000, reps=1000):
-    start = datetime.now()
-
-    print('Started checking net performance.')
-    envs = Envs(cpu_num=min(mp.cpu_count(),len(nets)), env_num=len(nets), env=env, game_len=max_len, gamma=0.99, lam=0.97)
-    su = []
-    for rep in range(reps):
-        obss = envs.reset()
-        i = 0
-        while i < max_len:
-            act = np.concatenate([t.get_action(obss[i])[0] for i, t in enumerate(nets)], 0)
-            obss = envs.step(act, np.zeros(len(nets)))
-            i+=1
-        lens = np.array([len(s) for s in envs.buf.sections])
-        su.append(envs.buf.rew_buf.sum(1)/lens)
-        print('rep', rep)
-    envs.close()
-
-    su = np.stack(su, 1)
-    for idx, sums in enumerate(su):
-        print('Endsumme (', names[idx], 'from', reps, 'reps ): MEAN =', np.mean(sums), 'STD =', np.std(sums),
-            'MIN =', np.min(sums), 'MAX =', np.max(sums), 'MEDIAN =', np.median(sums))
-
-    save_performance(start, su, names)
-    return su
-"""
 
 def check_net_performance(env, nets, names, max_len=8000, reps=1000):
     start = datetime.now()
@@ -58,18 +26,18 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000):
     su = []
     hidden = []
     done, param, state = False, None, None
-    for i, t in enumerate(nets):
-        if isinstance(t, Policy):
+    for i, net in enumerate(nets):
+        if isinstance(net, Policy):
             # Reset the policy / the exploration strategy
-            t.reset()
+            net.reset()
 
             # Set dropout and batch normalization layers to the right mode
-            t.eval()
+            net.eval()
 
             # Check for recurrent policy, which requires special handling
-            if t.is_recurrent:
+            if net.is_recurrent:
                 # Initialize hidden state var
-                hidden[i] = t.init_hidden()
+                hidden[i] = net.init_hidden()
 
     for rep in range(reps):
         obss = envs.reset()
@@ -77,22 +45,22 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000):
         i = 0
         while i < max_len:
             acts = [] # = np.concatenate([t.get_action(obss[i])[0] for i, t in enumerate(nets)], 0)
-            for i, t in enumerate(nets):
+            for i, net in enumerate(nets):
                 with to.no_grad():
-                    if isinstance(policy, Policy):
-                        if policy.is_recurrent:
-                            if isinstance(getattr(policy, "policy", policy), TwoHeadedPolicy):
-                                act_to, _, _ = policy(obs_to, hidden[i])
+                    if isinstance(net, Policy):
+                        if net.is_recurrent:
+                            if isinstance(getattr(net, "policy", net), TwoHeadedPolicy):
+                                act_to, _, _ = net(obs_to, hidden[i])
                             else:
-                                act_to, _ = policy(obs_to, hidden[i])
+                                act_to, _ = net(obs_to, hidden[i])
                         else:
-                            if isinstance(getattr(policy, "policy", policy), TwoHeadedPolicy):
-                                act_to, _ = policy(obs_to)
+                            if isinstance(getattr(net, "policy", net), TwoHeadedPolicy):
+                                act_to, _ = net(obs_to)
                             else:
-                                act_to = policy(obs_to)
+                                act_to = net(obs_to)
                     else:
                         # If the policy ist not of type Policy, it should still operate on PyTorch tensors
-                        act_to = policy(obs_to)
+                        act_to = net(obs_to)
                 acts.append(act_to.detach().cpu().numpy())
             act = np.concatenate(acts)
             obss = envs.step(act, np.zeros(len(nets)))
@@ -100,18 +68,7 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000):
         lens = np.array([len(s) for s in envs.buf.sections])
         su.append(envs.buf.rew_buf.sum(1)/lens)
         print('rep', rep)
-
-        """ro = rollout(
-            env,
-            policy,
-            render_mode=RenderMode(text=False, video=False),
-            eval=True,
-            reset_kwargs=dict(domain_param=param, init_state=state),
-        )
-        # print_domain_params(env.domain_param)
-        su.append(ro.undiscounted_return())
-        print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
-        done, param, state = False, None, None #done, state, param = after_rollout_query(env, policy, ro)"""
+        
     envs.close()
 
     su = np.stack(su, 1)
@@ -123,28 +80,6 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000):
     return su
 
 
-"""
-def check_performance(env, network, name, n=100, max_len=8000):
-    start = datetime.now()
-
-    su = []
-    for _ in range(n):
-        obs = env.reset()
-        done = False
-        rews = []
-        i = 0
-        while not done and i < max_len:
-            act, _ = network.get_action(obs)
-            obs, rew, done, _ = env.step(act.reshape(-1))
-            rews.append(rew)
-            i+=1
-        su.append(rews)
-    sums = np.array([np.sum(s) for s in su])
-    print('Endsumme (' + name + ' from', n, 'reps ): MEAN =', np.mean(sums), 'STD =', np.std(sums),
-          'MIN =', np.min(sums), 'MAX =', np.max(sums), 'MEDIAN =', np.median(sums))
-    save_performance(start, sums, np.array([name]))
-    return np.mean(sums)-np.std(sums)
-"""
 
 def check_performance(env, policy, name, n=1000, max_len=8000):
     print('Started checking performance.')
