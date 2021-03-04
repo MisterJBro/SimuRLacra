@@ -1,9 +1,12 @@
+from multiprocessing.spawn import freeze_support
 import torch as to
 from torch.utils.tensorboard import SummaryWriter
-
+import argparse
+import os
 import pyrado
 from pyrado.algorithms.policy_distillation.utils.eval import check_net_performance, check_performance
 from pyrado.environments.pysim.quanser_cartpole import QCartPoleStabSim, QCartPoleSwingUpSim
+from pyrado.environments.pysim.quanser_ball_balancer import QBallBalancerSim
 from pyrado.environments.pysim.quanser_qube import QQubeSwingUpSim
 from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.exploration.stochastic_action import NormalActNoiseExplStrat
@@ -16,9 +19,18 @@ import numpy as np
 
 from datetime import datetime
 
-START = datetime.now()
-temp_path = f'{pyrado.TEMP_DIR}/../runs/distillation/' + START.strftime("%Y-%m-%d_%H:%M:%S")
 
+START = datetime.now()
+
+# Parameters
+parser = argparse.ArgumentParser()
+
+# Environment
+parser.add_argument('--frequency', type=int, default=250)
+parser.add_argument('--max_steps', type=int, default=8_000)
+parser.add_argument('--teacher_count', type=int, default=8)
+parser.add_argument('--num_epochs', type=int, default=500)
+parser.add_argument('--num_iters', type=int, default=20)
 
 if __name__ == "__main__":
     # For multiprocessing and float32 support, recommended to include at top of script
@@ -26,23 +38,36 @@ if __name__ == "__main__":
     to.set_default_dtype(to.float32)
     device = to.device('cpu')
 
+    # Parse arguments
+    args = parser.parse_args()
+
     # Teachers
     hidden = []
     teachers = []
+    teacher_envs = []
+    teacher_expl_strat = []
+    ex_dirs = []
     env_name = ''
-    for idx in range(8):
+    for idx in range(args.teacher_count):
         # Get the experiment's directory to load from
-        ex_dir = ask_for_experiment(max_display = 50) # if args.dir is None else args.dir
+        ex_dir = ask_for_experiment(max_display = 100) # if args.dir is None else args.dir
 
+        # Check if this teacher was already selected before
+        while ex_dir in ex_dirs:
+            print('This teacher environment was already used. Choose a new one!')
+            ex_dir = ask_for_experiment(max_display = 50)
+        ex_dirs.append(ex_dir)
+
+        print(ex_dir)
         # Load the policy (trained in simulation) and the environment (for constructing the real-world counterpart)
-        env_teacher, policy, _ = load_experiment(ex_dir) #, args)
+        env_teacher, policy, extra = load_experiment(ex_dir) #, args)
         if (env_name == ''):
             env_name = env_teacher.name
         elif (env_teacher.name != env_name):
             raise pyrado.TypeErr(msg="The teacher environment does not match the previous one(s)!")
         teachers.append(policy)
-
-        # auf doppelte teacher testen
+        teacher_envs.append(env_teacher)
+        teacher_expl_strat.append(extra["expl_strat"])
 
     for i, t in enumerate(teachers):
         if isinstance(t, Policy):
@@ -57,31 +82,39 @@ if __name__ == "__main__":
                 # Initialize hidden state var
                 hidden[i] = t.init_hidden()
 
-    teacher_expl_strat = [NormalActNoiseExplStrat(teacher, std_init=0.6) for teacher in teachers]
+    #teacher_expl_strat = [NormalActNoiseExplStrat(teacher, std_init=0.6) for teacher in teachers]
 
     # Environment
     if (env_name == 'qq-su'):
-        env_hparams = dict(dt=1 / 250.0, max_steps=600)
+        env_hparams = dict(dt=1 / args.frequency, max_steps=600)
         env_real = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
         env_sim = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
         dp_nom = QQubeSwingUpSim.get_nominal_domain_param()
         # künstliche gap einfügen
     elif (env_name == 'qcp-su'):
-        env_hparams = dict(dt=1 / 250.0, max_steps=600)
+        env_hparams = dict(dt=1 / args.frequency, max_steps=600)
         env_real = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))
         env_sim = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))
         dp_nom = QCartPoleSwingUpSim.get_nominal_domain_param()
         dp_nom["B_pole"] = 0.0
+    elif (env_name == 'qbb'):
+        env_hparams = dict(dt=1 / args.frequency, max_steps=600)
+        env_real = ActNormWrapper(QBallBalancerSim(**env_hparams))
+        env_sim = ActNormWrapper(QBallBalancerSim(**env_hparams))
+        dp_nom = QBallBalancerSim.get_nominal_domain_param()
+        # künstliche gap einfügen
     else:
         raise pyrado.TypeErr(msg="No matching environment found!")
 
     env_sim.domain_param = dp_nom
 
+    temp_path = f'{pyrado.TEMP_DIR}/../runs/distillation/{env_name}/{START.strftime("%Y-%m-%d_%H:%M:%S")}/'
+    if not os.path.exists(temp_path):
+        os.makedirs(temp_path)
+    pyrado.save(env_sim, "env", "pkl", temp_path)
+
     obs_dim = env_sim.obs_space.flat_dim
     act_dim = env_sim.act_space.flat_dim
-
-    #log_std = sum([t.log_std.cpu().detach().item()/len(teachers) for t in teachers])
-    #print('log_std', log_std)
 
     # Student
     student_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
@@ -95,35 +128,27 @@ if __name__ == "__main__":
                 ],
                 lr=1e-4,
             )
-    #student.load(f'{TEACHER_PATH}/trained/student.pt')
 
-
-    # Check teacher performance:
     teacher_weights = np.ones(len(teachers))
     """
+    # Check teacher performance:
     nets = teachers[:]
     nets.append(student)
     names=[ f'teacher {t}' for t in range(len(teachers)) ]
     names.append('student_before_sim')
     performances = check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
-    for idx, sums in enumerate(performances[:-1]):
-        teacher_weights[idx] = np.mean(sums)-np.std(sums)
-    teacher_weights = teacher_weights / sum(teacher_weights) * len(teachers)
+
+        Traceback (most recent call last):
+            File "distillation.py", line 129, in <module>
+                performances = check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
+            File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/algorithms/policy_distillation/utils/eval.py", line 98, in check_net_performance
+                obss = envs.step(act, np.zeros(len(nets)))
+            File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/sampling/envs.py", line 90, in step
+                self.buf.store(self.obss, acts, rews, vals)
+            File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/sampling/buffer.py", line 70, in store
+                self.act_buf[:, self.ptr] = act
+            ValueError: could not broadcast input array from shape (81,1) into shape (9,1)
     """
-
-    #input('Press any key to continue...')
-
-    #teacher_weights = np.array([t.log_std.cpu().detach().exp().item() for t in teachers])
-    #teacher_weights = (teacher_weights / teacher_weights.sum()) * len(teachers)
-
-    #print('teacher_weight',teacher_weights)
-    #[ 0.8618  1.2897  1.1004  1.3799  0.6525  0.1363  1.0253  1.554 ]
-
-
-    # Student performance before learning:
-    #check_performance(env_real, student, 'student_before_real')
-
-    #exit()
 
     # Criterion
     criterion = to.nn.KLDivLoss(log_target=True, reduction='batchmean')
@@ -131,13 +156,13 @@ if __name__ == "__main__":
     writer = SummaryWriter(temp_path)
 
     # Student sampling
-    for epoch in range(500):
+    for epoch in range(args.num_epochs):
         act_student = []
         obss = []
         obs = env_sim.reset()
         losses = []
 
-        for i in range(8000):
+        for i in range(args.max_steps):
             obs = to.as_tensor(obs).float()
             obss.append(obs)
 
@@ -151,7 +176,7 @@ if __name__ == "__main__":
 
         obss = to.stack(obss, 0)
 
-        for _ in range(20):
+        for _ in range(args.num_iters):
             optimizer.zero_grad()
 
             s_dist = expl_strat.action_dist_at(student(obss)) ##student.get_dist(obss)
@@ -180,14 +205,22 @@ if __name__ == "__main__":
                     #"critic": self.critic.state_dict(),
                     "expl_strat": expl_strat.state_dict(),
                 },
-                temp_path + "student.pt",#f"{self._save_name}.pt",
+                temp_path + "student.pt",
             )
 
+    print('Finished training the student!')
 
     # Check student performance:
     check_performance(env_real, student, 'student_after')
+
+    # Check student performance on teacher envs:
+    for idx, env in enumerate(teacher_envs):
+        check_performance(env, student, f'student_on_teacher_env_{idx}')
+        env.close()
 
     env_sim.close()
     env_real.close()
     writer.flush()
     writer.close()
+
+    print('Finished evaluating the student!')

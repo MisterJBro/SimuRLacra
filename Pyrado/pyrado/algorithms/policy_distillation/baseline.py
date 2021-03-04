@@ -52,7 +52,6 @@ if __name__ == "__main__":
     for p in policy.net.output_layer.parameters():
         with to.no_grad():
             p /= 100
-            
 
     # Critic
     critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
@@ -87,4 +86,3 @@ if __name__ == "__main__":
 
     # Jeeeha
     algo.train(snapshot_mode="best", seed=args.seed)
-    
