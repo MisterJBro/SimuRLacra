@@ -16,6 +16,8 @@ from pyrado.utils.experiments import load_experiment
 from pyrado.environments.pysim.quanser_cartpole import QCartPoleStabSim, QCartPoleSwingUpSim
 from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.utils.data_types import RenderMode
+from pyrado.algorithms.policy_distillation.utils.load import load_teachers
+
 
 from datetime import datetime
 
@@ -128,6 +130,12 @@ def save_performance(start, sums, names, path=''):
             os.makedirs(eval_path)
         np.save( f'{eval_path}sums_{start.strftime("%Y-%m-%d_%H:%M:%S")}', sums)
         np.save( f'{eval_path}names_{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
+
+
+def check_old_teacher_performance(teacher_count):
+    # Teachers
+    teachers, teacher_expl_strat, hidden, ex_dirs, env_name = load_teachers(teacher_count)
+
 
 if __name__ == "__main__":
     # what to do:

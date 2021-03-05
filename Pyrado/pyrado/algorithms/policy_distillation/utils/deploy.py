@@ -37,20 +37,18 @@ from pyrado.environments.quanser.quanser_ball_balancer import QBallBalancerReal
 from pyrado.environments.quanser.quanser_cartpole import QCartPoleReal
 from pyrado.environments.quanser.quanser_qube import QQubeReal
 from pyrado.environments.pysim.quanser_ball_balancer import QBallBalancerSim
-from pyrado.environments.pysim.quanser_cartpole import QCartPoleSim
+from pyrado.environments.pysim.quanser_cartpole import QCartPoleSim, QCartPoleStabSim, QCartPoleSwingUpSim
 from pyrado.environments.pysim.quanser_qube import QQubeSim
-from pyrado.environments.pysim.quanser_cartpole import QCartPoleStabSim, QCartPoleSwingUpSim
-from pyrado.environments.pysim.quanser_qube import QQubeSwingUpSim
-from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.environment_wrappers.utils import inner_env
 from pyrado.logger.experiment import ask_for_experiment
-from pyrado.policies.feed_forward.fnn import FNNPolicy
 from pyrado.sampling.rollout import rollout, after_rollout_query
 from pyrado.utils.data_types import RenderMode
 from pyrado.utils.experiments import load_experiment
 from pyrado.domain_randomization.utils import wrap_like_other_env
 from pyrado.utils.input_output import print_cbt
 from pyrado.utils.argparser import get_argparser
+from pyrado.algorithms.policy_distillation.utils.load import load_student
+
 
 
 # Parameters
@@ -69,32 +67,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dt = 1.0/args.frequency
 
-    # Get the experiment's directory to load from
-    #ask_for_experiment(max_display=50) if args.dir is None else args.dir
-    ex_dir = f'{pyrado.TEMP_DIR}/../runs/distillation/{args.env_type}/{args.folder}/'
-
-    # Load the policy (trained in simulation) and the environment (for constructing the real-world counterpart)
-    #env_sim, policy, _ = load_experiment(ex_dir, args)
-    checkpoint = to.load(f'{ex_dir}/student.pt')
-
-    # Environment
-    if (args.env_type == 'qq-su'):
-        env_hparams = dict(dt=1 / 250.0, max_steps=600)
-        env_sim = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
-    elif (args.env_type == 'qcp-su'):
-        env_hparams = dict(dt=1 / 250.0, max_steps=600)
-        env_sim = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))
-    else:
-        raise pyrado.TypeErr(msg="No matching environment found!")
-
-
-    student_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
-    student = FNNPolicy(spec=env_sim.spec, **student_hparam)
-
-    student.load_state_dict(checkpoint['policy'])
-
-
-
+    student, env_sim = load_student(dt, args.env_type, args.folder, args.max_steps)
 
     # Detect the correct real-world counterpart and create it
     if isinstance(inner_env(env_sim), QBallBalancerSim):
