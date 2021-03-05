@@ -84,6 +84,7 @@ parser.add_argument('--max_steps', type=int, default=8_000)
 parser.add_argument('--seed', type=int, default=None)
 parser.add_argument('--simplerSim', type=bool, default=False)
 
+
 if __name__ == "__main__":
     # For multiprocessing and float32 support, recommended to include at top of script
     freeze_support()
@@ -104,19 +105,19 @@ if __name__ == "__main__":
         raise pyrado.TypeErr(msg=f'Environment {args.env_type} does not exist!')
 
     teachers = []
+    teacher_envs = get_random_envs(env_count = args.teacher_count, env = env_sim, simplerSim = args.simplerSim)
 
     # Train all teachers
-    for idx, env in enumerate(get_random_envs(env_count = args.teacher_count, env = env_sim, simplerSim = args.simplerSim)):
+    for idx, env in enumerate(teacher_envs):
         print(f'Training teacher: {idx}')
 
         # Experiment (set seed before creating the modules)
         if env.name == 'qcp-su':
-            ex_dir = setup_experiment(QCartPoleSwingUpSim.name, f"{PPOGAE.name}_{QCartPoleSwingUpAndBalanceCtrl.name}_teacher_{idx}")
+            ex_dir = setup_experiment(QCartPoleSwingUpSim.name, f"{PPOGAE.name}_{QCartPoleSwingUpAndBalanceCtrl.name}_{args.frequency}_teacher_{idx}")
         elif env.name == 'qq-su':
-            ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PPOGAE.name}_{QQubeSwingUpAndBalanceCtrl.name}_teacher_{idx}")
+            ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PPOGAE.name}_{QQubeSwingUpAndBalanceCtrl.name}_{args.frequency}_teacher_{idx}")
         elif env.name == 'qbb':
-            ex_dir = setup_experiment(QBallBalancerSim.name, f"{PPOGAE.name}_{FNNPolicy.name}_teacher_{idx}")
-
+            ex_dir = setup_experiment(QBallBalancerSim.name, f"{PPOGAE.name}_{FNNPolicy.name}_{args.frequency}_teacher_{idx}")
 
         # Set seed if desired
         pyrado.set_seed(args.seed, verbose=True)
@@ -169,11 +170,14 @@ if __name__ == "__main__":
     print('Finished training all teachers!')
 
     # check performance
-    nets = teachers[:]
-    names=[ f'teacher {t}' for t in range(len(teachers)) ]
-    check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
+    #nets = teachers[:]
+    #names=[ f'teacher {t}' for t in range(len(teachers)) ]
+    #check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
 
-    print('Finished evaluating all teachers!')
+    #print('Finished evaluating all teachers!')
+
+    for env in teacher_envs:
+        env.close()
 
 
 """

@@ -45,7 +45,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Teachers
-    teachers, teacher_expl_strat, hidden, ex_dirs, env_name = load_teachers(args.teacher_count)
+    teachers, teacher_envs, teacher_expl_strat, hidden, ex_dirs, env_name = load_teachers(args.teacher_count)
 
     # Environment
     if (env_name == 'qq-su'):
@@ -59,7 +59,7 @@ if __name__ == "__main__":
         env_real = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))
         env_sim = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))
         dp_nom = QCartPoleSwingUpSim.get_nominal_domain_param()
-        dp_nom["B_pole"] = 0.0
+        #dp_nom["B_pole"] = 0.0
     elif (env_name == 'qbb'):
         env_hparams = dict(dt=1 / args.frequency, max_steps=600)
         env_real = ActNormWrapper(QBallBalancerSim(**env_hparams))
@@ -94,14 +94,7 @@ if __name__ == "__main__":
             )
 
     teacher_weights = np.ones(len(teachers))
-    """
-    # Check teacher performance:
-    nets = teachers[:]
-    nets.append(student)
-    names=[ f'teacher {t}' for t in range(len(teachers)) ]
-    names.append('student_before_sim')
-    performances = check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
-    """
+    
 
     # Criterion
     criterion = to.nn.KLDivLoss(log_target=True, reduction='batchmean')
@@ -164,11 +157,11 @@ if __name__ == "__main__":
     print('Finished training the student!')
 
     # Check student performance:
-    check_performance(env_real, student, 'student_after', temp_path)
+    check_performance(env_real, student, 'student_after', path=temp_path)
 
     # Check student performance on teacher envs:
     for idx, env in enumerate(teacher_envs):
-        check_performance(env, student, f'student_on_teacher_env_{idx}', temp_path)
+        check_performance(env, student, f'student_on_teacher_env_{idx}', path=temp_path)
         env.close()
 
     plot_distillation_performance(env_name, timestamp, goalReward=args.goal_reward, showPlot=False)

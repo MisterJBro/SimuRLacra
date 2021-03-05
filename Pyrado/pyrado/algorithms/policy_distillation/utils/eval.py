@@ -13,21 +13,21 @@ from pyrado.sampling.rollout import rollout, after_rollout_query
 from pyrado.utils.input_output import print_cbt
 from pyrado.logger.experiment import ask_for_experiment
 from pyrado.utils.experiments import load_experiment
+from pyrado.environments.pysim.quanser_ball_balancer import QBallBalancerSim
 from pyrado.environments.pysim.quanser_cartpole import QCartPoleStabSim, QCartPoleSwingUpSim
 from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.utils.data_types import RenderMode
 from pyrado.algorithms.policy_distillation.utils.load import load_teachers
 
-
+import argparse
 from datetime import datetime
 
-def check_net_performance(env, nets, names, max_len=8000, reps=1000):
+def check_net_performance(env, nets, names, max_len=8000, reps=1000, path=''):
     start = datetime.now()
     print('Started checking net performance.')
     envs = Envs(cpu_num=min(mp.cpu_count(),len(nets)), env_num=len(nets), env=env, game_len=max_len, gamma=0.99, lam=0.97)
     su = []
     hidden = []
-    done, param, state = False, None, None
     for i, net in enumerate(nets):
         if isinstance(net, Policy):
             # Reset the policy / the exploration strategy
@@ -78,20 +78,22 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000):
         print('Endsumme (', names[idx], 'from', reps, 'reps ): MEAN =', np.mean(sums), 'STD =', np.std(sums),
             'MIN =', np.min(sums), 'MAX =', np.max(sums), 'MEDIAN =', np.median(sums))
 
-    save_performance(start, su, names)
+    save_performance(start, su, names, env.name, path)
     return su
-"""
+    """
         Traceback (most recent call last):
-            File "distillation.py", line 129, in <module>
-                performances = check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
-            File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/algorithms/policy_distillation/utils/eval.py", line 98, in check_net_performance
+            File "eval.py", line 234, in <module>
+                check_old_teacher_performance(teacher_count=args.teacher_count, frequency=args.frequency, reps=args.reps)
+            File "eval.py", line 159, in check_old_teacher_performance
+                check_net_performance(env=env_sim, nets=teachers[:], names=names, reps=reps)
+            File "eval.py", line 70, in check_net_performance
                 obss = envs.step(act, np.zeros(len(nets)))
             File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/sampling/envs.py", line 90, in step
                 self.buf.store(self.obss, acts, rews, vals)
             File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/sampling/buffer.py", line 70, in store
                 self.act_buf[:, self.ptr] = act
-            ValueError: could not broadcast input array from shape (81,1) into shape (9,1)
-"""
+            ValueError: could not broadcast input array from shape (4,1) into shape (2,1)
+    """
 
 
 def check_performance(env, policy, name, n=1000, max_len=8000, path=''):
@@ -116,83 +118,101 @@ def check_performance(env, policy, name, n=1000, max_len=8000, path=''):
     sums = np.array(su)
     print('Endsumme (' + name + ' from', n, 'reps ): MEAN =', np.mean(sums), 'STD =', np.std(sums),
           'MIN =', np.min(sums), 'MAX =', np.max(sums), 'MEDIAN =', np.median(sums))
-    save_performance(start, sums, np.array([name]), path)
+    save_performance(start, sums, np.array([name]), env.name, path)
     return np.mean(sums)-np.std(sums)
 
 
-def save_performance(start, sums, names, path=''):
+def save_performance(start, sums, names, env_name='', path=''):
+    env_str = f'{env_name}_' if env_name!='' else ''
+
     if path == '':
-        np.save( f'{pyrado.TEMP_DIR}/eval/sums_{start.strftime("%Y-%m-%d_%H:%M:%S")}', sums)
-        np.save( f'{pyrado.TEMP_DIR}/eval/names_{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
+        np.save( f'{pyrado.TEMP_DIR}/eval/sums_{env_str}{start.strftime("%Y-%m-%d_%H:%M:%S")}', sums)
+        np.save( f'{pyrado.TEMP_DIR}/eval/names_{env_str}{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
     else:
         eval_path = f'{path}eval/'
         if not os.path.exists(eval_path):
             os.makedirs(eval_path)
-        np.save( f'{eval_path}sums_{start.strftime("%Y-%m-%d_%H:%M:%S")}', sums)
-        np.save( f'{eval_path}names_{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
+        np.save( f'{eval_path}sums_{env_str}{start.strftime("%Y-%m-%d_%H:%M:%S")}', sums)
+        np.save( f'{eval_path}names_{env_str}{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
 
 
-def check_old_teacher_performance(teacher_count):
+def check_old_teacher_performance(teacher_count:int=8, frequency:int=250, reps:int=1000):
     # Teachers
-    teachers, teacher_expl_strat, hidden, ex_dirs, env_name = load_teachers(teacher_count)
+    teachers, _, teacher_expl_strat, hidden, ex_dirs, env_name = load_teachers(teacher_count)
+
+    env_hparams = dict(dt=1 / frequency, max_steps=reps)
+    # Environment
+    if (env_name == 'qq-su'):
+        env_sim = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
+        dp_nom = QQubeSwingUpSim.get_nominal_domain_param()
+    elif (env_name == 'qcp-su'):
+        env_sim = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))
+        dp_nom = QCartPoleSwingUpSim.get_nominal_domain_param()
+    elif (env_name == 'qbb'):
+        env_sim = ActNormWrapper(QBallBalancerSim(**env_hparams))
+        dp_nom = QBallBalancerSim.get_nominal_domain_param()
+    else:
+        raise pyrado.TypeErr(msg="No matching environment found!")
+    env_sim.domain_param = dp_nom
+
+    names=[ f'teacher {t}' for t in range(len(teachers)) ]
+    check_net_performance(env=env_sim, nets=teachers[:], names=names, reps=reps)
+    env_sim.close
 
 
 if __name__ == "__main__":
-    # what to do:
-    model = 'student.pt'
-    simulate = True
-    swingup = True
-
     freeze_support()
     to.set_default_dtype(to.float32)
     device = to.device('cpu')
 
-    # Enironment
-    #env_hparams = dict(dt=1 / 250.0, max_steps=600) ##
+    # Parameters
+    parser = argparse.ArgumentParser()
 
-    #if(swingup):
-        #env = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))
-        #env_sim = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
-    #else:
-    #    env = ActNormWrapper(QCartPoleStabSim(**env_hparams))
+    parser.add_argument('--simulate', type=bool, default=False)
+    parser.add_argument('--singlePolicy', type=bool, default=False)
+    parser.add_argument('--teacher_count', type=int, default=8)
+    parser.add_argument('--frequency', type=int, default=250)
+    parser.add_argument('--reps', type=int, default=8)
+    
 
-    #obs_dim = env.obs_space.flat_dim
-    #act_dim = env.act_space.flat_dim
+    # Parse command line arguments
+    args = parser.parse_args()
 
-    # Network
-    #net = Network(obs_dim, act_dim, 64, 64, 2e-3, device, -1.4)
-    #net.load(path=f'{pyrado.TEMP_DIR}/trained/{model}')
+    if args.singlePolicy:
 
-    ex_dir = ask_for_experiment()
-    env_sim, _, extra = load_experiment(ex_dir)
-    expl_strat = extra["expl_strat"]
+        ex_dir = ask_for_experiment()
+        env_sim, _, extra = load_experiment(ex_dir)
+        expl_strat = extra["expl_strat"]
 
-    #env_sim will not be used here, because we want to evaluate the policy on a different environment
-    #we can use it, by changing the parameters to the default ones:
-    if (env_sim.name == 'qq-su'):
-        env_sim.domain_param = QQubeSwingUpSim.get_nominal_domain_param()
-    elif (env_sim.name == 'qcp-su'):
-        env_sim.domain_param = QCartPoleSwingUpSim.get_nominal_domain_param()
+        #env_sim will not be used here, because we want to evaluate the policy on a different environment
+        #we can use it, by changing the parameters to the default ones:
+        if (env_sim.name == 'qq-su'):
+            env_sim.domain_param = QQubeSwingUpSim.get_nominal_domain_param()
+        elif (env_sim.name == 'qcp-su'):
+            env_sim.domain_param = QCartPoleSwingUpSim.get_nominal_domain_param()
+        else:
+            raise pyrado.TypeErr(msg="No matching environment found!")
+
+        if args.simulate:
+            # Test the policy in the environment
+            done, param, state = False, None, None
+            while not done:
+                ro = rollout(
+                    env_sim,
+                    expl_strat,
+                    render_mode=RenderMode(text=False, video=True),
+                    eval=True,
+                    reset_kwargs=dict(domain_param=param, init_state=state),
+                )
+                # print_domain_params(env.domain_param)
+                print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
+                done, state, param = after_rollout_query(env_sim, expl_strat, ro)
+
+        else:
+            # Evaluate
+            check_performance(env_sim, expl_strat, 'student_after', n=1000)
+
+        env_sim.close()
+
     else:
-        raise pyrado.TypeErr(msg="No matching environment found!")
-
-    if simulate:
-        # Test the policy in the environment
-        done, param, state = False, None, None
-        while not done:
-            ro = rollout(
-                env_sim,
-                expl_strat,
-                render_mode=RenderMode(text=False, video=True),
-                eval=True,
-                reset_kwargs=dict(domain_param=param, init_state=state),
-            )
-            # print_domain_params(env.domain_param)
-            print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
-            done, state, param = after_rollout_query(env_sim, expl_strat, ro)
-
-    else:
-        # Evaluate
-        check_performance(env_sim, expl_strat, 'student_after', n=1000)
-
-    env_sim.close()
+        check_old_teacher_performance(teacher_count=args.teacher_count, frequency=args.frequency, reps=args.reps)

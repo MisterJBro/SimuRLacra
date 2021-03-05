@@ -54,7 +54,7 @@ def load_teachers(teacher_count:int):
                 hidden[i] = t.init_hidden()
 
 
-    return teachers, teacher_expl_strat, hidden, ex_dirs, env_name
+    return teachers, teacher_envs, teacher_expl_strat, hidden, ex_dirs, env_name
 
 def load_student(dt:float, env_type:str, folder:str, max_steps:int):
     # Get the experiment's directory to load from
