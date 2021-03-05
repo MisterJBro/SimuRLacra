@@ -16,6 +16,7 @@ from pyrado.environments.pysim.quanser_qube import QQubeSwingUpSim
 from pyrado.policies.feed_forward.fnn import FNNPolicy
 from pyrado.logger.experiment import setup_experiment, save_dicts_to_yaml
 from pyrado.policies.special.environment_specific import QCartPoleSwingUpAndBalanceCtrl
+from pyrado.environments.pysim.quanser_ball_balancer import QBallBalancerSim
 from pyrado.utils.argparser import get_argparser
 from pyrado.utils.data_types import EnvSpec
 from pyrado.spaces import ValueFunctionSpace
@@ -44,11 +45,14 @@ if __name__ == "__main__":
     
     # Experiment (set seed before creating the modules)
     if args.env_type == 'qcp-su':
-        ex_dir = setup_experiment(QCartPoleSwingUpSim.name, f"{PPOGAE.name}_baseline_{QCartPoleSwingUpAndBalanceCtrl.name}")
+        ex_dir = setup_experiment(QCartPoleSwingUpSim.name, f"{PPOGAE.name}_baseline_{QCartPoleSwingUpAndBalanceCtrl.name}_{args.frequency}Hz")
         env = QCartPoleSwingUpSim(**env_hparams)
     elif args.env_type == 'qq-su':
-        ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PPOGAE.name}_baseline_{QQubeSwingUpSim.name}")
+        ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PPOGAE.name}_baseline_{QQubeSwingUpSim.name}_{args.frequency}Hz")
         env = QQubeSwingUpSim(**env_hparams)
+    elif args.env_type == 'qbb':
+        ex_dir = setup_experiment(QBallBalancerSim.name, f"{PPOGAE.name}_baseline_{QBallBalancerSim.name}_{args.frequency}Hz")
+        env = QBallBalancerSim(**env_hparams)
     #print(env)
 
     # Set seed if desired
