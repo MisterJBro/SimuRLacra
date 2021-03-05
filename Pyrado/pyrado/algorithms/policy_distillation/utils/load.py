@@ -63,7 +63,7 @@ def load_student(dt:float, env_type:str, folder:str, max_steps:int):
 
     # Load the policy (trained in simulation) and the environment (for constructing the real-world counterpart)
     #env_sim, policy, _ = load_experiment(ex_dir, args)
-    checkpoint = to.load(f'{ex_dir}/student.pt')
+    checkpoint = to.load(f'{ex_dir}student.pt')
 
     # Environment
     if (env_type == 'qq-su'):

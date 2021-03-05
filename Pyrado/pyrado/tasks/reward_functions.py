@@ -431,4 +431,6 @@ class QCartPoleSwingUpRewFcn(RewFcn):
 
         # Reward should be roughly between [0, 1]
         #return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (np.abs(err_s[0])))
-        return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (1 - np.abs(err_s[0] / 0.3)))  
+        #return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (1 - np.abs(err_s[0] / 0.3)))  
+        distance_penalty = (1 - self.factor) * (1 - np.abs(err_s[0] / 0.3)) if np.abs(err_s[0]) < 0.2 else -10.0
+        return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + distance_penalty)  

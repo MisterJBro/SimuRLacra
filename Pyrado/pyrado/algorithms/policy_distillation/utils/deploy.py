@@ -38,6 +38,7 @@ from pyrado.environments.quanser.quanser_cartpole import QCartPoleReal
 from pyrado.environments.quanser.quanser_qube import QQubeReal
 from pyrado.environments.pysim.quanser_ball_balancer import QBallBalancerSim
 from pyrado.environments.pysim.quanser_cartpole import QCartPoleSim, QCartPoleStabSim, QCartPoleSwingUpSim
+from pyrado.environments.quanser.quanser_cartpole import QCartPoleSwingUpReal, QCartPoleStabReal
 from pyrado.environments.pysim.quanser_qube import QQubeSim
 from pyrado.environment_wrappers.utils import inner_env
 from pyrado.logger.experiment import ask_for_experiment
@@ -60,6 +61,7 @@ parser.add_argument('--env_type', type=str, default='qcp-su')
 parser.add_argument('--max_steps', type=int, default=8_000)
 parser.add_argument('--folder', type=str, default=None)
 parser.add_argument('--animation', type=bool, default=False)
+parser.add_argument('--verbose', type=bool, default=False)
 
 if __name__ == "__main__":
 
@@ -73,7 +75,7 @@ if __name__ == "__main__":
     if isinstance(inner_env(env_sim), QBallBalancerSim):
         env_real = QBallBalancerReal(dt=dt, max_steps=args.max_steps)
     elif isinstance(inner_env(env_sim), QCartPoleSim):
-        env_real = QCartPoleReal(dt=dt, max_steps=args.max_steps)
+        env_real = QCartPoleSwingUpReal(dt=dt, max_steps=args.max_steps)
     elif isinstance(inner_env(env_sim), QQubeSim):
         env_real = QQubeReal(dt=dt, max_steps=args.max_steps)
     else:
@@ -87,7 +89,7 @@ if __name__ == "__main__":
     print_cbt("Running loaded policy ...", "c", bright=True)
     while not done:
         ro = rollout(
-            env_real, student, eval=True, record_dts=True, render_mode=RenderMode(text=False, video=args.animation)
+            env_real, student, eval=True, record_dts=True, render_mode=RenderMode(text=args.verbose, video=args.animation)
         )
         print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
         done, _, _ = after_rollout_query(env_real, student, ro)
