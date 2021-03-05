@@ -44,29 +44,29 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000, path=''):
     for rep in range(reps):
         obss = envs.reset()
         obs_to = to.from_numpy(obss).type(to.get_default_dtype())  # policy operates on PyTorch tensors
-        i = 0
-        while i < max_len:
+        iter = 0
+        while iter < max_len:
             acts = [] # = np.concatenate([t.get_action(obss[i])[0] for i, t in enumerate(nets)], 0)
             for i, net in enumerate(nets):
                 with to.no_grad():
                     if isinstance(net, Policy):
                         if net.is_recurrent:
                             if isinstance(getattr(net, "policy", net), TwoHeadedPolicy):
-                                act_to, _, _ = net(obs_to, hidden[i])
+                                act_to, _, _ = net(obs_to[i].reshape(1,-1), hidden[i])
                             else:
-                                act_to, _ = net(obs_to, hidden[i])
+                                act_to, _ = net(obs_to[i].reshape(1,-1), hidden[i])
                         else:
                             if isinstance(getattr(net, "policy", net), TwoHeadedPolicy):
-                                act_to, _ = net(obs_to)
+                                act_to, _ = net(obs_to[i].reshape(1,-1))
                             else:
-                                act_to = net(obs_to)
+                                act_to = net(obs_to[i].reshape(1,-1))
                     else:
                         # If the policy ist not of type Policy, it should still operate on PyTorch tensors
-                        act_to = net(obs_to)
+                        act_to = net(obs_to[i].reshape(1,-1))
                 acts.append(act_to.detach().cpu().numpy())
             act = np.concatenate(acts)
             obss = envs.step(act, np.zeros(len(nets)))
-            i+=1
+            iter+=1
         lens = np.array([len(s) for s in envs.buf.sections])
         su.append(envs.buf.rew_buf.sum(1)/lens)
         print('rep', rep)
@@ -80,20 +80,6 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000, path=''):
 
     save_performance(start, su, names, env.name, path)
     return su
-    """
-        Traceback (most recent call last):
-            File "eval.py", line 234, in <module>
-                check_old_teacher_performance(teacher_count=args.teacher_count, frequency=args.frequency, reps=args.reps)
-            File "eval.py", line 159, in check_old_teacher_performance
-                check_net_performance(env=env_sim, nets=teachers[:], names=names, reps=reps)
-            File "eval.py", line 70, in check_net_performance
-                obss = envs.step(act, np.zeros(len(nets)))
-            File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/sampling/envs.py", line 90, in step
-                self.buf.store(self.obss, acts, rews, vals)
-            File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/sampling/buffer.py", line 70, in store
-                self.act_buf[:, self.ptr] = act
-            ValueError: could not broadcast input array from shape (4,1) into shape (2,1)
-    """
 
 
 def check_performance(env, policy, name, n=1000, max_len=8000, path=''):
@@ -136,9 +122,9 @@ def save_performance(start, sums, names, env_name='', path=''):
         np.save( f'{eval_path}names_{env_str}{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
 
 
-def check_old_teacher_performance(teacher_count:int=8, frequency:int=250, reps:int=1000):
+def check_old_teacher_performance(env_name:str, teacher_count:int=8, frequency:int=250, reps:int=1000):
     # Teachers
-    teachers, _, teacher_expl_strat, hidden, ex_dirs, env_name = load_teachers(teacher_count)
+    teachers, _, teacher_expl_strat, hidden, ex_dirs = load_teachers(teacher_count, env_name)
 
     env_hparams = dict(dt=1 / frequency, max_steps=reps)
     # Environment
@@ -173,14 +159,14 @@ if __name__ == "__main__":
     parser.add_argument('--teacher_count', type=int, default=8)
     parser.add_argument('--frequency', type=int, default=250)
     parser.add_argument('--reps', type=int, default=8)
-    
+    parser.add_argument('--env_name', type=str, default='qq-su')
 
     # Parse command line arguments
     args = parser.parse_args()
 
     if args.singlePolicy:
 
-        ex_dir = ask_for_experiment()
+        ex_dir = ask_for_experiment(env_name=args.env_name)
         env_sim, _, extra = load_experiment(ex_dir)
         expl_strat = extra["expl_strat"]
 
@@ -215,4 +201,4 @@ if __name__ == "__main__":
         env_sim.close()
 
     else:
-        check_old_teacher_performance(teacher_count=args.teacher_count, frequency=args.frequency, reps=args.reps)
+        check_old_teacher_performance(args.env_name, teacher_count=args.teacher_count, frequency=args.frequency, reps=args.reps)
