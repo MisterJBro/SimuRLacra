@@ -5,6 +5,7 @@ import argparse
 import os
 import pyrado
 from pyrado.algorithms.policy_distillation.utils.eval import check_net_performance, check_performance
+from pyrado.algorithms.policy_distillation.utils.plot import plot_distillation_performance
 from pyrado.environments.pysim.quanser_cartpole import QCartPoleStabSim, QCartPoleSwingUpSim
 from pyrado.environments.pysim.quanser_ball_balancer import QBallBalancerSim
 from pyrado.environments.pysim.quanser_qube import QQubeSwingUpSim
@@ -14,7 +15,6 @@ from pyrado.logger.experiment import ask_for_experiment
 from pyrado.policies.feed_forward.fnn import FNNPolicy
 from pyrado.policies.base import Policy, TwoHeadedPolicy
 from pyrado.utils.experiments import load_experiment
-
 import numpy as np
 
 from datetime import datetime
@@ -31,6 +31,8 @@ parser.add_argument('--max_steps', type=int, default=8_000)
 parser.add_argument('--teacher_count', type=int, default=8)
 parser.add_argument('--num_epochs', type=int, default=500)
 parser.add_argument('--num_iters', type=int, default=20)
+parser.add_argument('--goal_reward', type=int, default=7000)
+
 
 if __name__ == "__main__":
     # For multiprocessing and float32 support, recommended to include at top of script
@@ -108,7 +110,8 @@ if __name__ == "__main__":
 
     env_sim.domain_param = dp_nom
 
-    temp_path = f'{pyrado.TEMP_DIR}/../runs/distillation/{env_name}/{START.strftime("%Y-%m-%d_%H:%M:%S")}/'
+    timestamp = START.strftime("%Y-%m-%d_%H:%M:%S")
+    temp_path = f'{pyrado.TEMP_DIR}/../runs/distillation/{env_name}/{timestamp}/'
     if not os.path.exists(temp_path):
         os.makedirs(temp_path)
     pyrado.save(env_sim, "env", "pkl", temp_path)
@@ -137,17 +140,6 @@ if __name__ == "__main__":
     names=[ f'teacher {t}' for t in range(len(teachers)) ]
     names.append('student_before_sim')
     performances = check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
-
-        Traceback (most recent call last):
-            File "distillation.py", line 129, in <module>
-                performances = check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
-            File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/algorithms/policy_distillation/utils/eval.py", line 98, in check_net_performance
-                obss = envs.step(act, np.zeros(len(nets)))
-            File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/sampling/envs.py", line 90, in step
-                self.buf.store(self.obss, acts, rews, vals)
-            File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/sampling/buffer.py", line 70, in store
-                self.act_buf[:, self.ptr] = act
-            ValueError: could not broadcast input array from shape (81,1) into shape (9,1)
     """
 
     # Criterion
@@ -211,12 +203,14 @@ if __name__ == "__main__":
     print('Finished training the student!')
 
     # Check student performance:
-    check_performance(env_real, student, 'student_after')
+    check_performance(env_real, student, 'student_after', temp_path)
 
     # Check student performance on teacher envs:
     for idx, env in enumerate(teacher_envs):
-        check_performance(env, student, f'student_on_teacher_env_{idx}')
+        check_performance(env, student, f'student_on_teacher_env_{idx}', temp_path)
         env.close()
+
+    plot_distillation_performance(env_name, timestamp, goalReward=args.goal_reward, showPlot=False)
 
     env_sim.close()
     env_real.close()

@@ -4,7 +4,7 @@ from pyrado.policies.special.environment_specific import QQubeSwingUpAndBalanceC
 import torch as to
 import multiprocessing as mp
 from multiprocessing import freeze_support
-
+import os
 import pyrado
 from pyrado.sampling.envs import Envs
 from pyrado.algorithms.step_based.ppo_gae import PPOGAE
@@ -68,7 +68,7 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000):
         lens = np.array([len(s) for s in envs.buf.sections])
         su.append(envs.buf.rew_buf.sum(1)/lens)
         print('rep', rep)
-        
+
     envs.close()
 
     su = np.stack(su, 1)
@@ -78,13 +78,23 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000):
 
     save_performance(start, su, names)
     return su
+"""
+        Traceback (most recent call last):
+            File "distillation.py", line 129, in <module>
+                performances = check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
+            File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/algorithms/policy_distillation/utils/eval.py", line 98, in check_net_performance
+                obss = envs.step(act, np.zeros(len(nets)))
+            File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/sampling/envs.py", line 90, in step
+                self.buf.store(self.obss, acts, rews, vals)
+            File "/home/benedikt/UNI/SimuRLacra/Pyrado/pyrado/sampling/buffer.py", line 70, in store
+                self.act_buf[:, self.ptr] = act
+            ValueError: could not broadcast input array from shape (81,1) into shape (9,1)
+"""
 
 
-
-def check_performance(env, policy, name, n=1000, max_len=8000):
+def check_performance(env, policy, name, n=1000, max_len=8000, path=''):
     print('Started checking performance.')
-    start = datetime.now()
-
+    start=datetime.now()
     su = []
     # Test the policy in the environment
     done, param, state = False, None, None
@@ -104,14 +114,20 @@ def check_performance(env, policy, name, n=1000, max_len=8000):
     sums = np.array(su)
     print('Endsumme (' + name + ' from', n, 'reps ): MEAN =', np.mean(sums), 'STD =', np.std(sums),
           'MIN =', np.min(sums), 'MAX =', np.max(sums), 'MEDIAN =', np.median(sums))
-    save_performance(start, sums, np.array([name]))
+    save_performance(start, sums, np.array([name]), path)
     return np.mean(sums)-np.std(sums)
 
 
-def save_performance(start, sums, names):
-    np.save( f'{pyrado.TEMP_DIR}/eval/sums_{start.strftime("%Y-%m-%d_%H:%M:%S")}', sums)
-    np.save( f'{pyrado.TEMP_DIR}/eval/names_{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
-
+def save_performance(start, sums, names, path=''):
+    if path == '':
+        np.save( f'{pyrado.TEMP_DIR}/eval/sums_{start.strftime("%Y-%m-%d_%H:%M:%S")}', sums)
+        np.save( f'{pyrado.TEMP_DIR}/eval/names_{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
+    else:
+        eval_path = f'{path}eval/'
+        if not os.path.exists(eval_path):
+            os.makedirs(eval_path)
+        np.save( f'{eval_path}sums_{start.strftime("%Y-%m-%d_%H:%M:%S")}', sums)
+        np.save( f'{eval_path}names_{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
 
 if __name__ == "__main__":
     # what to do:
