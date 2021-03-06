@@ -113,11 +113,11 @@ if __name__ == "__main__":
 
         # Experiment (set seed before creating the modules)
         if env.name == 'qcp-su':
-            ex_dir = setup_experiment(QCartPoleSwingUpSim.name, f"{PPOGAE.name}_{QCartPoleSwingUpAndBalanceCtrl.name}_{args.frequency}_teacher_{idx}")
+            ex_dir = setup_experiment(QCartPoleSwingUpSim.name, f"{PPOGAE.name}_{QCartPoleSwingUpAndBalanceCtrl.name}_{args.frequency}Hz_teacher_{idx}")
         elif env.name == 'qq-su':
-            ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PPOGAE.name}_{QQubeSwingUpAndBalanceCtrl.name}_{args.frequency}_teacher_{idx}")
+            ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PPOGAE.name}_{QQubeSwingUpAndBalanceCtrl.name}_{args.frequency}Hz_teacher_{idx}")
         elif env.name == 'qbb':
-            ex_dir = setup_experiment(QBallBalancerSim.name, f"{PPOGAE.name}_{FNNPolicy.name}_{args.frequency}_teacher_{idx}")
+            ex_dir = setup_experiment(QBallBalancerSim.name, f"{PPOGAE.name}_{FNNPolicy.name}_{args.frequency}Hz_teacher_{idx}")
 
         # Set seed if desired
         pyrado.set_seed(args.seed, verbose=True)

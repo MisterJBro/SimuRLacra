@@ -34,6 +34,7 @@ parser.add_argument('--num_epochs', type=int, default=500)
 parser.add_argument('--num_iters', type=int, default=20)
 parser.add_argument('--goal_reward', type=int, default=7000)
 parser.add_argument('--env_name', type=str, default='qq-su')
+parser.add_argument('--packs', type=bool, default=True)
 
 
 if __name__ == "__main__":
@@ -45,9 +46,9 @@ if __name__ == "__main__":
     # Parse arguments
     args = parser.parse_args()
     env_name = args.env_name
-    
+
     # Teachers
-    teachers, teacher_envs, teacher_expl_strat, hidden, ex_dirs = load_teachers(args.teacher_count, env_name)
+    teachers, teacher_envs, teacher_expl_strat, hidden, ex_dirs = load_teachers(args.teacher_count, env_name, args.packs)
 
     # Environment
     if (env_name == 'qq-su'):

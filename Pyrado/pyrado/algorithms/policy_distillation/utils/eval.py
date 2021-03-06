@@ -24,7 +24,7 @@ from datetime import datetime
 
 def check_net_performance(env, nets, names, max_len=8000, reps=1000, path=''):
     start = datetime.now()
-    print('Started checking net performance.')
+    print(f'Started checking net performance: {len(nets)} networks on {env.name}')
     envs = Envs(cpu_num=min(mp.cpu_count(),len(nets)), env_num=len(nets), env=env, game_len=max_len, gamma=0.99, lam=0.97)
     su = []
     hidden = []
@@ -69,7 +69,7 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000, path=''):
             iter+=1
         lens = np.array([len(s) for s in envs.buf.sections])
         su.append(envs.buf.rew_buf.sum(1)/lens)
-        print('rep', rep)
+        print('finished rep', rep, 'at', datetime.now().strftime("%H:%M:%S"))
 
     envs.close()
 
@@ -122,11 +122,11 @@ def save_performance(start, sums, names, env_name='', path=''):
         np.save( f'{eval_path}names_{env_str}{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
 
 
-def check_old_teacher_performance(env_name:str, teacher_count:int=8, frequency:int=250, reps:int=1000):
+def check_old_teacher_performance(env_name:str, teacher_count:int=8, frequency:int=250, max_steps:int=600, reps:int=1000, packs:bool=None):
     # Teachers
-    teachers, _, teacher_expl_strat, hidden, ex_dirs = load_teachers(teacher_count, env_name)
+    teachers, _, teacher_expl_strat, hidden, ex_dirs = load_teachers(teacher_count, env_name, packs)
 
-    env_hparams = dict(dt=1 / frequency, max_steps=reps)
+    env_hparams = dict(dt=1 / frequency, max_steps=max_steps)
     # Environment
     if (env_name == 'qq-su'):
         env_sim = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
@@ -158,8 +158,10 @@ if __name__ == "__main__":
     parser.add_argument('--singlePolicy', type=bool, default=False)
     parser.add_argument('--teacher_count', type=int, default=8)
     parser.add_argument('--frequency', type=int, default=250)
-    parser.add_argument('--reps', type=int, default=8)
+    parser.add_argument('--max_steps', type=int, default=600)
+    parser.add_argument('--reps', type=int, default=1000)
     parser.add_argument('--env_name', type=str, default='qq-su')
+    parser.add_argument('--packs', type=bool, default=False)
 
     # Parse command line arguments
     args = parser.parse_args()
@@ -201,4 +203,4 @@ if __name__ == "__main__":
         env_sim.close()
 
     else:
-        check_old_teacher_performance(args.env_name, teacher_count=args.teacher_count, frequency=args.frequency, reps=args.reps)
+        check_old_teacher_performance(args.env_name, teacher_count=args.teacher_count, frequency=args.frequency, max_steps=args.max_steps, reps=args.reps, packs=args.packs)
