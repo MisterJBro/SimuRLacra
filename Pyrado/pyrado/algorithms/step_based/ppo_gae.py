@@ -197,7 +197,7 @@ class PPOGAE(Algorithm):
 
             self.optimizer.step()
         
-        self.expl_strat.std -= 0.007
+        self.expl_strat.std -= 0.000#7
 
     def train(self, snapshot_mode: str = "latest", seed: int = None, meta_info: dict = None):
         super().train(snapshot_mode, seed, meta_info)

@@ -59,8 +59,8 @@ if __name__ == "__main__":
     pyrado.set_seed(args.seed, verbose=True)
 
     # Domain Randomization
-    #randomizer = create_default_randomizer(env)
-    #env = DomainRandWrapperLive(env, randomizer)
+    randomizer = create_default_randomizer(env)
+    env = DomainRandWrapperLive(env, randomizer)
     env = ActNormWrapper(env)
     print(env)
 
@@ -89,7 +89,7 @@ if __name__ == "__main__":
         epoch_num=40,
         device="cpu",
         max_kl=0.05,
-        std_init=0.6,
+        std_init=1.0,
         clip_ratio=0.2,
         lr=2e-3,
     )
