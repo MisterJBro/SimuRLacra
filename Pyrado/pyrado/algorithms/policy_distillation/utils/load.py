@@ -12,6 +12,7 @@ from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.environments.pysim.quanser_cartpole import QCartPoleStabSim, QCartPoleSwingUpSim
 from pyrado.environments.pysim.quanser_ball_balancer import QBallBalancerSim
 from pyrado.environments.pysim.quanser_qube import QQubeSwingUpSim
+from pyrado.exploration.stochastic_action import NormalActNoiseExplStrat
 from pyrado.policies.feed_forward.fnn import FNNPolicy
     
 def load_teachers(teacher_count:int, env_name:str, packs:bool=False):
@@ -58,7 +59,7 @@ def load_teachers(teacher_count:int, env_name:str, packs:bool=False):
         return teachers, teacher_envs, teacher_expl_strat, hidden, ex_dirs
     else:
         packlist = ask_for_packlist()
-        return load_packed_teachers(env_name, packlist)
+        return load_packed_teachers(env_name, packlist, teacher_count)
 
 def load_student(dt:float, env_type:str, folder:str, max_steps:int):
     # Get the experiment's directory to load from
@@ -86,7 +87,10 @@ def load_student(dt:float, env_type:str, folder:str, max_steps:int):
 
     student.load_state_dict(checkpoint['policy'])
 
-    return student, env_sim
+    expl_strat = NormalActNoiseExplStrat(student, std_init=0.6)
+    expl_strat.load_state_dict(checkpoint['expl_strat'])
+
+    return student, env_sim, expl_strat
 
 
 def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False):
@@ -111,7 +115,7 @@ def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False)
     print('Finished packing teachers.')
 
 
-def load_packed_teachers(env_name:str, packs:list):
+def load_packed_teachers(env_name:str, packs:list, teacher_count:int):
     teacher_counts = packs[0]
     suffixes = [ f'{p}' for p in packs[1]]
     all_teachers, all_teacher_envs, all_teacher_expl_strat, all_hidden, all_ex_dirs = [], [], [], [], []
@@ -122,7 +126,14 @@ def load_packed_teachers(env_name:str, packs:list):
         all_teacher_expl_strat += teacher_expl_strat
         all_hidden += hidden
         all_ex_dirs += ex_dirs
-    return all_teachers, all_teacher_envs, all_teacher_expl_strat, all_hidden, all_ex_dirs
+    print(f'Loaded {len(all_teachers)} teachers.')
+    if teacher_count==None:
+        teacher_count = len(all_teachers)
+    elif len(all_teachers) < teacher_count:
+        print(f'Using only the first {teacher_count} of them.')
+    elif len(all_teachers) > teacher_count:
+        raise pyrado.ValueErr(given=teacher_count, given_name='teacher_count', le_constraint=len(all_teachers))
+    return all_teachers[:teacher_count], all_teacher_envs[:teacher_count], all_teacher_expl_strat[:teacher_count], all_hidden[:teacher_count], all_ex_dirs[:teacher_count]
 
 
 def load_specific_packed_teachers(teacher_count:int, env_name:str, suffix:str):
@@ -156,12 +167,12 @@ if __name__ == "__main__":
 
     # Environment
     parser.add_argument('--teacher_count', type=int, default=4)
-    parser.add_argument('--counter', type=int, default=None)
+    parser.add_argument('--counter', type=int, default=0)
     parser.add_argument('--env_name', type=str, default='qq-su')
     parser.add_argument('--descr', type=str, default='')
-    parser.add_argument('--packs', type=bool, default=False)
+    parser.add_argument('--packs', action='store_true', default=False)
 
     args = parser.parse_args()
-    
+
     pack_teachers(args.teacher_count, args.env_name, f'{args.descr}{args.counter}', args.packs)
-    
+    #load_teachers(args.teacher_count, args.env_name, args.packs)

@@ -299,7 +299,10 @@ def ask_for_experiment(latest_only: bool = False, max_display: int = 10, env_nam
     :return: query asking the user for an experiment
     """
     # Scan for experiment list
-    all_exps = list(list_experiments(env_name=env_name, base_dir=base_dir))
+    if env_name!=None and base_dir!=None:
+        all_exps = list(list_experiments(env_name=env_name, base_dir=base_dir))
+    else:
+        all_exps = list(list_experiments())
 
     if len(all_exps) == 0:
         print_cbt("No experiments found!", "r")

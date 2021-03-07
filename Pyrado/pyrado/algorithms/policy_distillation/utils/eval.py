@@ -17,7 +17,7 @@ from pyrado.environments.pysim.quanser_ball_balancer import QBallBalancerSim
 from pyrado.environments.pysim.quanser_cartpole import QCartPoleStabSim, QCartPoleSwingUpSim
 from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.utils.data_types import RenderMode
-from pyrado.algorithms.policy_distillation.utils.load import load_teachers
+from pyrado.algorithms.policy_distillation.utils.load import load_student, load_teachers
 
 import argparse
 from datetime import datetime
@@ -154,23 +154,31 @@ if __name__ == "__main__":
     # Parameters
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--simulate', type=bool, default=False)
-    parser.add_argument('--singlePolicy', type=bool, default=False)
+    parser.add_argument('--singlePolicy', action='store_true', default=False)
+    parser.add_argument('--student', action='store_true', default=False)
+    parser.add_argument('--folder', type=str, default=None)
+    parser.add_argument('--simulate', action='store_true', default=False)
+    parser.add_argument('--animation', action='store_true', default=False)
+    parser.add_argument('--verbose', action='store_true', default=False)
+
     parser.add_argument('--teacher_count', type=int, default=8)
     parser.add_argument('--frequency', type=int, default=250)
     parser.add_argument('--max_steps', type=int, default=600)
     parser.add_argument('--reps', type=int, default=1000)
     parser.add_argument('--env_name', type=str, default='qq-su')
-    parser.add_argument('--packs', type=bool, default=False)
+    parser.add_argument('--packs', action='store_true', default=False)
 
     # Parse command line arguments
     args = parser.parse_args()
 
     if args.singlePolicy:
+        if not args.student:
+            ex_dir = ask_for_experiment(env_name=args.env_name, base_dir=pyrado.TEMP_DIR)
+            env_sim, _, extra = load_experiment(ex_dir)
+            expl_strat = extra["expl_strat"]
+        else:
+            student, env_sim, expl_strat = load_student(1.0/args.frequency, args.env_name, args.folder, args.max_steps)
 
-        ex_dir = ask_for_experiment(env_name=args.env_name)
-        env_sim, _, extra = load_experiment(ex_dir)
-        expl_strat = extra["expl_strat"]
 
         #env_sim will not be used here, because we want to evaluate the policy on a different environment
         #we can use it, by changing the parameters to the default ones:
@@ -188,7 +196,7 @@ if __name__ == "__main__":
                 ro = rollout(
                     env_sim,
                     expl_strat,
-                    render_mode=RenderMode(text=False, video=True),
+                    render_mode=RenderMode(text=args.verbose, video=args.animation),
                     eval=True,
                     reset_kwargs=dict(domain_param=param, init_state=state),
                 )

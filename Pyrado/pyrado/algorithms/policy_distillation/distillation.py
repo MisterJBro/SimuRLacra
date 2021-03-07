@@ -34,7 +34,7 @@ parser.add_argument('--num_epochs', type=int, default=500)
 parser.add_argument('--num_iters', type=int, default=20)
 parser.add_argument('--goal_reward', type=int, default=7000)
 parser.add_argument('--env_name', type=str, default='qq-su')
-parser.add_argument('--packs', type=bool, default=True)
+parser.add_argument('--packs', action='store_true', default=False)
 
 
 if __name__ == "__main__":
