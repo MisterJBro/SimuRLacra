@@ -98,7 +98,7 @@ class PPOGAE(Algorithm):
         # Policy
         self.device = to.device(device)
         self.critic = critic
-        self._expl_strat = NormalActNoiseExplStrat(self._policy, std_init=std_init)
+        self._expl_strat = NormalActNoiseExplStrat(self._policy, std_init=std_init, std_min=0.14)
         self.optimizer = to.optim.Adam(
             [
                 {"params": self.policy.parameters()},
@@ -145,6 +145,7 @@ class PPOGAE(Algorithm):
         self.logger.add_value("avg return", np.mean(rets), 4)
         self.logger.add_value("min return", np.min(rets), 4)
         self.logger.add_value("std return", np.std(rets), 4)
+        self.logger.add_value("std var", self.expl_strat.std, 4)
         self.logger.add_value("avg rollout len", np.mean(all_lengths), 4)
         self.logger.add_value("num total samples", np.sum(all_lengths))
 
@@ -195,6 +196,8 @@ class PPOGAE(Algorithm):
             loss.backward()
 
             self.optimizer.step()
+        
+        self.expl_strat.std -= 0.007
 
     def train(self, snapshot_mode: str = "latest", seed: int = None, meta_info: dict = None):
         super().train(snapshot_mode, seed, meta_info)

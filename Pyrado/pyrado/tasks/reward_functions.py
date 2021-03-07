@@ -415,13 +415,19 @@ class ForwardVelocityRewFcn(RewFcn):
 class QCartPoleSwingUpRewFcn(RewFcn):
     """ Custom reward function for QCartPoleSwingUpSim. """
 
-    def __init__(self, factor: float = 0.9):
+    def __init__(self, factor: float = 0.8, zero_dist: float = 0.20, dist_factor: int = 3, rotation_factor: float = 0.5):#, action_factor: int = 5, action_scale: float = 16.0):
         """
         Constructor
 
         :param factor: weighting factor of rotation error to position error
         """
         self.factor = factor
+        self.zero_dist = zero_dist
+        self.dist_factor = dist_factor
+        self.rotation_factor = rotation_factor
+        #self.action_factor = action_factor
+        #self.action_scale = action_scale
+
 
     def __call__(self, err_s: np.ndarray, err_a: np.ndarray, remaining_steps: int = None) -> float:
         if not isinstance(err_s, np.ndarray):
@@ -431,6 +437,15 @@ class QCartPoleSwingUpRewFcn(RewFcn):
 
         # Reward should be roughly between [0, 1]
         #return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (np.abs(err_s[0])))
-        #return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (1 - np.abs(err_s[0] / 0.3)))  
-        distance_penalty = (1 - self.factor) * (1 - np.abs(err_s[0] / 0.3)) if np.abs(err_s[0]) < 0.2 else -10.0
-        return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + distance_penalty)  
+        #return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (1 - np.abs(err_s[0] / 0.3)))
+
+        rotation_rew = 1 - np.abs(err_s[1] / np.pi) ** self.rotation_factor
+        
+        if np.abs(err_s[0]) > self.zero_dist:
+            distance_rew = np.clip(1 - (8/self.zero_dist) * np.abs(err_s[0]), -5.0, 0)
+        else:
+            distance_rew = 1 - (1/self.zero_dist) * np.abs(err_s[0])
+        
+        #distance_rew = - (np.abs(err_s[0]) - self.zero_dist)**self.dist_factor/(self.zero_dist**self.dist_factor)
+        #action_rew = - (np.abs(err_a[0])/self.action_scale)**self.action_factor
+        return float(self.factor * rotation_rew + (1 - self.factor) * distance_rew) #+ action_rew) 

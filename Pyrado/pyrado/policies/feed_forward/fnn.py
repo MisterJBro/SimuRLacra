@@ -51,6 +51,7 @@ class FNN(nn.Module):
         output_nonlin: Callable = None,
         init_param_kwargs: dict = None,
         use_cuda: bool = False,
+        output_scale: float = 1.0
     ):
         """
         Constructor
@@ -63,6 +64,7 @@ class FNN(nn.Module):
         :param output_nonlin: nonlinearity for output layer
         :param init_param_kwargs: additional keyword arguments for the policy parameter initialization
         :param use_cuda: `True` to move the policy to the GPU, `False` (default) to use the CPU
+        :param output_scale: Scales the final output of the network
         """
         self._device = "cuda" if use_cuda and to.cuda.is_available() else "cpu"
 
@@ -73,6 +75,7 @@ class FNN(nn.Module):
         )
         self.dropout = dropout
         self.output_nonlin = output_nonlin
+        self.output_scale = output_scale
 
         # Create hidden layers (stored in ModuleList so their parameters are tracked)
         self.hidden_layers = nn.ModuleList()
@@ -155,7 +158,7 @@ class FNN(nn.Module):
         if self.output_nonlin is not None:
             output = self.output_nonlin(output)
 
-        return output
+        return self.output_scale*output
 
 
 class FNNPolicy(Policy):
@@ -172,6 +175,7 @@ class FNNPolicy(Policy):
         output_nonlin: Callable = None,
         init_param_kwargs: dict = None,
         use_cuda: bool = False,
+        output_scale: float = 1.0
     ):
         """
         Constructor
@@ -183,6 +187,7 @@ class FNNPolicy(Policy):
         :param output_nonlin: nonlinearity for output layer
         :param init_param_kwargs: additional keyword arguments for the policy parameter initialization
         :param use_cuda: `True` to move the policy to the GPU, `False` (default) to use the CPU
+        :param output_scale: Scales the final output of the network
         """
         super().__init__(spec, use_cuda)
 
@@ -195,6 +200,7 @@ class FNNPolicy(Policy):
             dropout=dropout,
             output_nonlin=output_nonlin,
             use_cuda=use_cuda,
+            output_scale=output_scale,
         )
 
         # Call custom initialization function after PyTorch network parameter initialization

@@ -200,7 +200,7 @@ if __name__ == "__main__":
                 ro = rollout(
                     env_sim,
                     expl_strat,
-                    render_mode=RenderMode(text=False, video=True),
+                    render_mode=RenderMode(text=True, video=True),
                     eval=True,
                     reset_kwargs=dict(domain_param=param, init_state=state),
                 )

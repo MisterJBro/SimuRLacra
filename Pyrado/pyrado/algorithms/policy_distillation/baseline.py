@@ -7,6 +7,7 @@ from multiprocessing import freeze_support
 import pyrado
 from pyrado.algorithms.step_based.ppo_gae import PPOGAE
 from pyrado.environment_wrappers.action_normalization import ActNormWrapper
+from pyrado.environment_wrappers.observation_normalization import ObsNormWrapper
 from pyrado.domain_randomization.default_randomizers import create_default_randomizer
 from pyrado.environment_wrappers.action_delay import ActDelayWrapper
 from pyrado.environment_wrappers.observation_noise import GaussianObsNoiseWrapper
@@ -53,19 +54,18 @@ if __name__ == "__main__":
     elif args.env_type == 'qbb':
         ex_dir = setup_experiment(QBallBalancerSim.name, f"{PPOGAE.name}_baseline_{QBallBalancerSim.name}_{args.frequency}Hz")
         env = QBallBalancerSim(**env_hparams)
-    #print(env)
 
     # Set seed if desired
     pyrado.set_seed(args.seed, verbose=True)
 
     # Domain Randomization
-    randomizer = create_default_randomizer(env)
-    env = DomainRandWrapperLive(env, randomizer)
+    #randomizer = create_default_randomizer(env)
+    #env = DomainRandWrapperLive(env, randomizer)
     env = ActNormWrapper(env)
-    env = ActDelayWrapper(env, delay=3)
+    print(env)
 
     # Policy
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.nn.ReLU(), output_nonlin=to.tanh, output_scale=0.8)
     policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
@@ -74,14 +74,14 @@ if __name__ == "__main__":
             p /= 100
 
     # Critic
-    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
+    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.nn.ReLU())
     critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
     algo_hparam = dict(
         max_iter=100,
         tb_name="ppo",
-        traj_len=8_000,
+        traj_len=16_000,
         gamma=0.99,
         lam=0.97,
         env_num=9,
@@ -90,8 +90,8 @@ if __name__ == "__main__":
         device="cpu",
         max_kl=0.05,
         std_init=0.6,
-        clip_ratio=0.25,
-        lr=3e-3,
+        clip_ratio=0.2,
+        lr=2e-3,
     )
     algo = PPOGAE(ex_dir, env, policy, critic, **algo_hparam)
 
