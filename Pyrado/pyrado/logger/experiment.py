@@ -291,7 +291,7 @@ def split_path_custom_common(path: Union[str, Experiment]) -> (str, str):
     return custom, common
 
 
-def ask_for_experiment(latest_only: bool = False, max_display: int = 10):
+def ask_for_experiment(latest_only: bool = False, max_display: int = 10, env_name: str = None, base_dir:str=None):
     """
     Ask for an experiment on the console. This is the go-to entry point for evaluation scripts.
 
@@ -299,7 +299,10 @@ def ask_for_experiment(latest_only: bool = False, max_display: int = 10):
     :return: query asking the user for an experiment
     """
     # Scan for experiment list
-    all_exps = list(list_experiments())
+    if env_name!=None and base_dir!=None:
+        all_exps = list(list_experiments(env_name=env_name, base_dir=base_dir))
+    else:
+        all_exps = list(list_experiments())
 
     if len(all_exps) == 0:
         print_cbt("No experiments found!", "r")

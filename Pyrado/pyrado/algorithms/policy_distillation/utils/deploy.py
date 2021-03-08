@@ -69,7 +69,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dt = 1.0/args.frequency
 
-    student, env_sim = load_student(dt, args.env_type, args.folder, args.max_steps)
+    student, env_sim, expl_strat = load_student(dt, args.env_type, args.folder, args.max_steps)
 
     # Detect the correct real-world counterpart and create it
     if isinstance(inner_env(env_sim), QBallBalancerSim):
