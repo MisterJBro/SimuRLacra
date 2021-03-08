@@ -34,8 +34,9 @@ if __name__ == "__main__":
     pyrado.set_seed(args.seed, verbose=True)
 
     # Environment
-    env_hparams = dict(dt=1 / 250.0, max_steps=8_000)
+    env_hparams = dict(dt=1 / 250.0, max_steps=600)
     env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
+    print(env)
 
     # Policy
     policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
