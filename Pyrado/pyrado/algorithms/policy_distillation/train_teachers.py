@@ -73,6 +73,66 @@ def get_random_envs(env_count = 10, env = ActNormWrapper(QCartPoleSwingUpSim(dt=
 
     return envs
 
+def train_teacher(env):
+    print(f'Training teacher: {idx}')
+
+    # Experiment (set seed before creating the modules)
+    if env.name == 'qcp-su':
+        ex_dir = setup_experiment(QCartPoleSwingUpSim.name, f"{PPOGAE.name}_{QCartPoleSwingUpAndBalanceCtrl.name}_{args.max_steps}st_{args.frequency}Hz_teacher_{idx}")
+    elif env.name == 'qq-su':
+        ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PPOGAE.name}_{QQubeSwingUpAndBalanceCtrl.name}_{args.max_steps}st_{args.frequency}Hz_teacher_{idx}")
+    elif env.name == 'qbb':
+        ex_dir = setup_experiment(QBallBalancerSim.name, f"{PPOGAE.name}_{FNNPolicy.name}_{args.max_steps}st_{args.frequency}Hz_teacher_{idx}")
+
+    # Set seed if desired
+    pyrado.set_seed(args.seed, verbose=True)
+
+    # Policy
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+    policy = FNNPolicy(spec=env.spec, **policy_hparam)
+
+    # Reduce weights of last layer, recommended by paper
+    for p in policy.net.output_layer.parameters():
+        with to.no_grad():
+            p /= 100
+
+    # Critic
+    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
+    critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+
+    # Subroutine
+    algo_hparam = dict(
+        max_iter=50,
+        tb_name="ppo",
+        traj_len=args.max_steps,
+        gamma=0.99,
+        lam=0.97,
+        env_num=9,
+        cpu_num=min(9, mp.cpu_count()/4),
+        epoch_num=40,
+        device="cpu",
+        max_kl=0.05,
+        std_init=0.6,
+        clip_ratio=0.25,
+        lr=3e-3,
+    )
+    algo = PPOGAE(ex_dir, env, policy, critic, **algo_hparam)
+
+    # Save the hyper-parameters
+    save_dicts_to_yaml(
+        dict(env=env_hparams, seed=args.seed),
+        dict(policy=policy_hparam),
+        dict(critic=critic_hparam),
+        dict(algo=algo_hparam, algo_name=algo.name),
+        save_dir=ex_dir,
+    )
+
+    # Jeeeha
+    algo.train(snapshot_mode="best", seed=args.seed)
+
+    return policy
+
+
 # Parameters
 parser = argparse.ArgumentParser()
 
@@ -82,8 +142,8 @@ parser.add_argument('--env_type', type=str, default='qcp-su')
 parser.add_argument('--teacher_count', type=int, default=8)
 parser.add_argument('--max_steps', type=int, default=8_000)
 parser.add_argument('--seed', type=int, default=None)
-parser.add_argument('--simplerSim', type=bool, default=False)
-parser.add_argument('--eval_after', type=bool, default=False)
+parser.add_argument('--simplerSim', action='store_true', default=False)
+parser.add_argument('--eval_after', action='store_true', default=False)
 
 
 if __name__ == "__main__":
@@ -105,8 +165,14 @@ if __name__ == "__main__":
     else:
         raise pyrado.TypeErr(msg=f'Environment {args.env_type} does not exist!')
 
-    teachers = []
     teacher_envs = get_random_envs(env_count = args.teacher_count, env = env_sim, simplerSim = args.simplerSim)
+
+
+    a_pool = mp.Pool(processes=4)
+    teachers = a_pool.map(train_teacher, teacher_envs)
+
+    """
+    teachers = []
 
     # Train all teachers
     for idx, env in enumerate(teacher_envs):
@@ -114,11 +180,11 @@ if __name__ == "__main__":
 
         # Experiment (set seed before creating the modules)
         if env.name == 'qcp-su':
-            ex_dir = setup_experiment(QCartPoleSwingUpSim.name, f"{PPOGAE.name}_{QCartPoleSwingUpAndBalanceCtrl.name}_{args.frequency}Hz_teacher_{idx}")
+            ex_dir = setup_experiment(QCartPoleSwingUpSim.name, f"{PPOGAE.name}_{QCartPoleSwingUpAndBalanceCtrl.name}_{args.max_steps}st_{args.frequency}Hz_teacher_{idx}")
         elif env.name == 'qq-su':
-            ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PPOGAE.name}_{QQubeSwingUpAndBalanceCtrl.name}_{args.frequency}Hz_teacher_{idx}")
+            ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PPOGAE.name}_{QQubeSwingUpAndBalanceCtrl.name}_{args.max_steps}st_{args.frequency}Hz_teacher_{idx}")
         elif env.name == 'qbb':
-            ex_dir = setup_experiment(QBallBalancerSim.name, f"{PPOGAE.name}_{FNNPolicy.name}_{args.frequency}Hz_teacher_{idx}")
+            ex_dir = setup_experiment(QBallBalancerSim.name, f"{PPOGAE.name}_{FNNPolicy.name}_{args.max_steps}st_{args.frequency}Hz_teacher_{idx}")
 
         # Set seed if desired
         pyrado.set_seed(args.seed, verbose=True)
@@ -167,6 +233,7 @@ if __name__ == "__main__":
         algo.train(snapshot_mode="best", seed=args.seed)
 
         teachers.append(policy)
+    """
 
     print('Finished training all teachers!')
 
