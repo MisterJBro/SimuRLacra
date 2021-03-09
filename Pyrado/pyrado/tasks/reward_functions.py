@@ -415,7 +415,7 @@ class ForwardVelocityRewFcn(RewFcn):
 class QCartPoleSwingUpRewFcn(RewFcn):
     """ Custom reward function for QCartPoleSwingUpSim. """
 
-    def __init__(self, factor: float = 0.8, zero_dist: float = 0.20, dist_factor: int = 3, rotation_factor: float = 0.5):#, action_factor: int = 5, action_scale: float = 16.0):
+    def __init__(self, factor: float = 1., zero_dist: float = 0.20, dist_factor: int = 3, rotation_factor: float = 2.0):#, action_factor: int = 5, action_scale: float = 16.0):
         """
         Constructor
 
@@ -440,11 +440,17 @@ class QCartPoleSwingUpRewFcn(RewFcn):
         #return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (1 - np.abs(err_s[0] / 0.3)))
 
         rotation_rew = 1 - np.abs(err_s[1] / np.pi) ** self.rotation_factor
+        distance_rew = 1 - np.abs(err_s[0] / 0.4) ** 0.5
+
+        if np.abs(err_s[0]) >= self.zero_dist:
+            return 0.0
+
+        return 0.9*rotation_rew + 0.1*distance_rew
         
-        if np.abs(err_s[0]) > self.zero_dist:
-            distance_rew = np.clip(1 - (8/self.zero_dist) * np.abs(err_s[0]), -5.0, 0)
-        else:
-            distance_rew = 1 - (1/self.zero_dist) * np.abs(err_s[0])
+        #if np.abs(err_s[0]) > self.zero_dist:
+        #    distance_rew = np.clip(1 - (8/self.zero_dist) * np.abs(err_s[0]), -5.0, 0)
+        #else:
+        #    distance_rew = 1 - (1/self.zero_dist) * np.abs(err_s[0])
         
         #distance_rew = - (np.abs(err_s[0]) - self.zero_dist)**self.dist_factor/(self.zero_dist**self.dist_factor)
         #action_rew = - (np.abs(err_a[0])/self.action_scale)**self.action_factor

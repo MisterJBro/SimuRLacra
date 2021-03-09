@@ -98,7 +98,7 @@ class PPOGAE(Algorithm):
         # Policy
         self.device = to.device(device)
         self.critic = critic
-        self._expl_strat = NormalActNoiseExplStrat(self._policy, std_init=std_init, std_min=0.14)
+        self._expl_strat = NormalActNoiseExplStrat(self._policy, std_init=std_init)
         self.optimizer = to.optim.Adam(
             [
                 {"params": self.policy.parameters()},
