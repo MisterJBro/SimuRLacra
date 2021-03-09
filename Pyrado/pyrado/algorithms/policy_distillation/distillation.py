@@ -1,4 +1,5 @@
 from multiprocessing.spawn import freeze_support
+import multiprocessing
 import torch as to
 from torch.utils.tensorboard import SummaryWriter
 import argparse
@@ -16,6 +17,7 @@ from pyrado.exploration.stochastic_action import NormalActNoiseExplStrat
 from pyrado.policies.feed_forward.fnn import FNNPolicy
 #, TwoHeadedPolicy
 #from pyrado.utils.experiments import load_experiment
+from copy import deepcopy
 import numpy as np
 
 from datetime import datetime
@@ -52,19 +54,19 @@ if __name__ == "__main__":
 
     # Environment
     if (env_name == 'qq-su'):
-        env_hparams = dict(dt=1 / args.frequency, max_steps=600)
+        env_hparams = dict(dt=1 / args.frequency, max_steps=args.max_steps)
         env_real = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
         env_sim = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
         dp_nom = QQubeSwingUpSim.get_nominal_domain_param()
         # künstliche gap einfügen
     elif (env_name == 'qcp-su'):
-        env_hparams = dict(dt=1 / args.frequency, max_steps=600)
+        env_hparams = dict(dt=1 / args.frequency, max_steps=args.max_steps)
         env_real = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))
         env_sim = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))
         dp_nom = QCartPoleSwingUpSim.get_nominal_domain_param()
         #dp_nom["B_pole"] = 0.0
     elif (env_name == 'qbb'):
-        env_hparams = dict(dt=1 / args.frequency, max_steps=600)
+        env_hparams = dict(dt=1 / args.frequency, max_steps=args.max_steps)
         env_real = ActNormWrapper(QBallBalancerSim(**env_hparams))
         env_sim = ActNormWrapper(QBallBalancerSim(**env_hparams))
         dp_nom = QBallBalancerSim.get_nominal_domain_param()
@@ -160,12 +162,16 @@ if __name__ == "__main__":
     print('Finished training the student!')
 
     # Check student performance:
-    check_performance(env_real, student, 'student_after', path=temp_path)
+    check_performance(env=env_real, policy=student, name='student_after', path=temp_path)
+
+
+    a_pool = multiprocessing.Pool(processes=4)
+    su = a_pool.starmap(check_performance, [(env, deepcopy(student), f'student_on_teacher_env_{idx}', 1000, temp_path) for idx, env in enumerate(teacher_envs)])
 
     # Check student performance on teacher envs:
-    for idx, env in enumerate(teacher_envs):
-        check_performance(env, student, f'student_on_teacher_env_{idx}', path=temp_path)
-        env.close()
+    #for idx, env in enumerate(teacher_envs):
+    #    check_performance(env=env, policy=student, name=f'student_on_teacher_env_{idx}', path=temp_path)
+    #    env.close()
 
     plot_distillation_performance(env_name, timestamp, goalReward=args.goal_reward, showPlot=False)
 

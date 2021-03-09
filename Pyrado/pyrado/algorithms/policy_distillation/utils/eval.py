@@ -1,4 +1,6 @@
+import multiprocessing
 import numpy as np
+from numpy.lib.function_base import iterable
 from pyrado.environments.pysim.quanser_qube import QQubeSwingUpSim
 from pyrado.policies.special.environment_specific import QQubeSwingUpAndBalanceCtrl
 import torch as to
@@ -18,6 +20,7 @@ from pyrado.environments.pysim.quanser_cartpole import QCartPoleStabSim, QCartPo
 from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.utils.data_types import RenderMode
 from pyrado.algorithms.policy_distillation.utils.load import load_student, load_teachers
+from copy import deepcopy
 
 import argparse
 from datetime import datetime
@@ -25,7 +28,7 @@ from datetime import datetime
 def check_net_performance(env, nets, names, max_len=8000, reps=1000, path=''):
     start = datetime.now()
     print(f'Started checking net performance: {len(nets)} networks on {env.name}')
-    envs = Envs(cpu_num=min(mp.cpu_count(),len(nets)), env_num=len(nets), env=env, game_len=max_len, gamma=0.99, lam=0.97)
+    envs = Envs(cpu_num=min(mp.cpu_count(), len(nets)), env_num=len(nets), env=env, game_len=max_len, gamma=0.99, lam=0.97)
     su = []
     hidden = []
     for i, net in enumerate(nets):
@@ -82,7 +85,7 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000, path=''):
     return su
 
 
-def check_performance(env, policy, name, n=1000, max_len=8000, path=''):
+def check_performance(env, policy, name, n=1000, path=''):
     print('Started checking performance.')
     start=datetime.now()
     su = []
@@ -107,6 +110,32 @@ def check_performance(env, policy, name, n=1000, max_len=8000, path=''):
     save_performance(start, sums, np.array([name]), env.name, path)
     return np.mean(sums)-np.std(sums)
 
+"""
+def check_performance(env, policy, name:str, n:int=1000, path=''):
+    print('Started checking performance.')
+    start=datetime.now()
+    a_pool = multiprocessing.Pool()
+    su = a_pool.starmap(rollout_wrapper, [(deepcopy(env), deepcopy(policy), n, i) for i in range(n)])
+    sums = np.array(su)
+    print('Endsumme (' + name + ' from', n, 'reps ): MEAN =', np.mean(sums), 'STD =', np.std(sums),
+          'MIN =', np.min(sums), 'MAX =', np.max(sums), 'MEDIAN =', np.median(sums))
+    save_performance(start, sums, np.array([name]), env.name, path)
+    return np.mean(sums)-np.std(sums)
+
+def rollout_wrapper(env, policy, n, i):
+    param, state = None, None 
+    print('rollout', i, '/', n-1)
+    ro = rollout(
+        env,
+        policy,
+        render_mode=RenderMode(text=False, video=False),
+        eval=True,
+        reset_kwargs=dict(domain_param=param, init_state=state),
+    )
+    env.close()
+    print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
+    return ro.undiscounted_return()
+"""
 
 def save_performance(start, sums, names, env_name='', path=''):
     env_str = f'{env_name}_' if env_name!='' else ''
@@ -206,7 +235,7 @@ if __name__ == "__main__":
 
         else:
             # Evaluate
-            check_performance(env_sim, expl_strat, 'student_after', n=1000)
+            check_performance(env_sim, expl_strat, 'student_after', n=args.reps)
 
         env_sim.close()
 
