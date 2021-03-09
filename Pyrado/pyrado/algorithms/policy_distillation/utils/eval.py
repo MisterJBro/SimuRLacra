@@ -27,7 +27,7 @@ from datetime import datetime
 
 def check_net_performance(env, nets, names, max_len=8000, reps=1000, path=''):
     start = datetime.now()
-    print(f'Started checking net performance: {len(nets)} networks on {env.name}')
+    print(f'Started checking net performance: {len(nets)} networks on {env.name} ({start.strftime("%Y-%m-%d_%H:%M:%S")})')
     envs = Envs(cpu_num=min(mp.cpu_count(), len(nets)), env_num=len(nets), env=env, game_len=max_len, gamma=0.99, lam=0.97)
     su = []
     hidden = []
@@ -108,7 +108,7 @@ def check_performance(env, policy, name, n=1000, path=''):
     print('Endsumme (' + name + ' from', n, 'reps ): MEAN =', np.mean(sums), 'STD =', np.std(sums),
           'MIN =', np.min(sums), 'MAX =', np.max(sums), 'MEDIAN =', np.median(sums))
     save_performance(start, sums, np.array([name]), env.name, path)
-    return np.mean(sums)-np.std(sums)
+    return np.mean(sums)
 
 """
 def check_performance(env, policy, name:str, n:int=1000, path=''):
