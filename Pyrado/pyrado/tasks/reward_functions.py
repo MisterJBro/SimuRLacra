@@ -439,10 +439,10 @@ class QCartPoleSwingUpRewFcn(RewFcn):
         #return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (np.abs(err_s[0])))
         #return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (1 - np.abs(err_s[0] / 0.3)))
 
-        rotation_rew = 1 - np.abs(err_s[1] / np.pi) ** self.rotation_factor
-        distance_rew = 1 - np.abs(err_s[0] / 0.4) ** 0.5
+        rotation_rew = 1 - np.abs(err_s[1] / np.pi) ** 1.0
+        distance_rew = 1 - np.abs(err_s[0] / 0.4) ** 1.0
 
-        if np.abs(err_s[0]) >= self.zero_dist:
+        if np.abs(err_s[0]) >= self.zero_dist or np.abs(err_a[0]) >= 5.0:
             return 0.0
 
         return 0.9*rotation_rew + 0.1*distance_rew

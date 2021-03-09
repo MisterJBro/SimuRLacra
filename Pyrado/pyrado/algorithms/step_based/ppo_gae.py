@@ -158,11 +158,12 @@ class PPOGAE(Algorithm):
     def sample_batch(self) -> np.ndarray:
         """ Sample batch of trajectories for training. """
         obss = self.envs.reset()
+        scale = self.policy.net.output_scale
 
         for _ in range(self.traj_len):
-            obss = to.as_tensor(obss).to(self.device)
+            obss = to.as_tensor(obss).to(self.device)   
             with to.no_grad():
-                acts = self.expl_strat(obss).cpu().numpy()
+                acts = self.expl_strat(obss).cpu().numpy()#.clip(-scale, scale)
                 vals = self.critic(obss).reshape(-1).cpu().numpy()
             obss = self.envs.step(acts, vals)
 
@@ -186,6 +187,7 @@ class PPOGAE(Algorithm):
 
             logp = dist.log_prob(act).sum(-1)
             loss_policy, kl = self.loss_fcn(logp, old_logp, adv)
+            loss_policy += 0.01*dist.entropy().mean()
 
             # Early stopping if kl divergence too high
             if kl > self.max_kl:

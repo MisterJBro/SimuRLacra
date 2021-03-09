@@ -8,6 +8,7 @@ import pyrado
 from pyrado.algorithms.step_based.ppo_gae import PPOGAE
 from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.environments.pysim.quanser_cartpole import QCartPoleSwingUpSim
+from pyrado.environment_wrappers.observation_normalization import ObsNormWrapper
 from pyrado.policies.feed_forward.fnn import FNNPolicy
 from pyrado.logger.experiment import setup_experiment, save_dicts_to_yaml
 from pyrado.policies.special.environment_specific import QCartPoleSwingUpAndBalanceCtrl
@@ -31,12 +32,26 @@ if __name__ == "__main__":
     # Set seed if desired
     pyrado.set_seed(args.seed, verbose=True)
 
+    # Upper and lower bounds
+    """elb = {
+        "x": -0.357,
+        "x_dot": -1.628,
+        "theta_dot": -32.8319,
+    }
+    eub = {
+        "x": 0.357,
+        "x_dot": 1.628,
+        "theta_dot": 32.8319,
+    }"""
+
     # Environment
     env_hparams = dict(dt=1 / 250.0, max_steps=1500)
     env = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))
+    #env = ObsNormWrapper(env, explicit_lb=elb, explicit_ub=eub)
+    print(env)
 
     # Policy
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=0.8)
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=1.0)
     policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
@@ -50,12 +65,12 @@ if __name__ == "__main__":
 
     # Subroutine
     algo_hparam = dict(
-        max_iter=50,
+        max_iter=100,
         tb_name="ppo",
         traj_len=1500,
         gamma=0.99,
         lam=0.97,
-        env_num=27,
+        env_num=30,
         cpu_num=min(9,mp.cpu_count()-1),
         epoch_num=40,
         device="cpu",
