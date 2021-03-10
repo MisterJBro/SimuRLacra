@@ -254,6 +254,7 @@ def load_experiment(ex_dir: str, args: Any = None) -> (Union[SimEnv, EnvWrapper]
         print_cbt(f"Loaded {osp.join(ex_dir, f'{args.vfcn_name}.pt')}", "g")
         extra["expl_strat"] = pyrado.load(algo.expl_strat, f"expl_strat", "pt", ex_dir, None)
         print_cbt(f"Loaded {osp.join(ex_dir, f'expl_strat.pt')}", "g")
+        extra["highest_avg_ret"] = algo._highest_avg_ret
 
     else:
         raise pyrado.TypeErr(msg="No matching algorithm name found during loading the experiment!")

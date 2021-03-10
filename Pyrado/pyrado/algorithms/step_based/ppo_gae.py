@@ -98,6 +98,7 @@ class PPOGAE(Algorithm):
         # Policy
         self.device = to.device(device)
         self.critic = critic
+        self.std_loss = 1.0
         self._expl_strat = NormalActNoiseExplStrat(self._policy, std_init=std_init, std_min=0.1)
         self.optimizer = to.optim.Adam(
             [
@@ -163,7 +164,7 @@ class PPOGAE(Algorithm):
         for _ in range(self.traj_len):
             obss = to.as_tensor(obss).to(self.device)   
             with to.no_grad():
-                acts = self.expl_strat(obss).cpu().numpy()#.clip(-scale, scale)
+                acts = self.expl_strat(obss).cpu().numpy()
                 vals = self.critic(obss).reshape(-1).cpu().numpy()
             obss = self.envs.step(acts, vals)
 
@@ -187,8 +188,7 @@ class PPOGAE(Algorithm):
 
             logp = dist.log_prob(act).sum(-1)
             loss_policy, kl = self.loss_fcn(logp, old_logp, adv)
-            #loss_policy += 0.01*dist.entropy().mean()
-            loss_policy += self.expl_strat.std.mean()*1.0
+            loss_policy += self.expl_strat.std.mean() * self.std_loss
 
             # Early stopping if kl divergence too high
             if kl > self.max_kl:
@@ -199,8 +199,6 @@ class PPOGAE(Algorithm):
             loss.backward()
 
             self.optimizer.step()
-        
-        self.expl_strat.std -= 0.000#7
 
     def train(self, snapshot_mode: str = "latest", seed: int = None, meta_info: dict = None):
         super().train(snapshot_mode, seed, meta_info)

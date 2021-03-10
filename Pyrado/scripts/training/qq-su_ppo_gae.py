@@ -39,7 +39,7 @@ if __name__ == "__main__":
     print(env)
 
     # Policy
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=1.0)
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
     policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper

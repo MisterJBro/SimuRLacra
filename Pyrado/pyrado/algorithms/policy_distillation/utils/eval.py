@@ -205,6 +205,7 @@ if __name__ == "__main__":
             ex_dir = ask_for_experiment(env_name=args.env_name, base_dir=pyrado.TEMP_DIR)
             env_sim, _, extra = load_experiment(ex_dir)
             expl_strat = extra["expl_strat"]
+            print(extra['highest_avg_ret'])
         else:
             student, env_sim, expl_strat = load_student(1.0/args.frequency, args.env_name, args.folder, args.max_steps)
 
