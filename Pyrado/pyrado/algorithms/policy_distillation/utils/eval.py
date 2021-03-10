@@ -171,7 +171,13 @@ def check_old_teacher_performance(env_name:str, teacher_count:int=8, frequency:i
     env_sim.domain_param = dp_nom
 
     names=[ f'teacher {t}' for t in range(len(teachers)) ]
-    check_net_performance(env=env_sim, nets=teachers[:], names=names, reps=reps)
+
+    a_pool = multiprocessing.Pool(processes=4)
+    su = a_pool.starmap_async(check_performance, [(deepcopy(env_sim), policy, names[idx], 1000, ex_dirs[idx]) for idx, policy in enumerate(teacher_expl_strat)]).get()
+    a_pool.close()
+    a_pool.join()
+
+    #check_net_performance(env=env_sim, nets=teachers[:], names=names, reps=reps)
     env_sim.close
 
 

@@ -14,7 +14,7 @@ from pyrado.environments.pysim.quanser_ball_balancer import QBallBalancerSim
 from pyrado.environments.pysim.quanser_qube import QQubeSwingUpSim
 from pyrado.exploration.stochastic_action import NormalActNoiseExplStrat
 from pyrado.policies.feed_forward.fnn import FNNPolicy
-    
+
 def load_teachers(teacher_count:int, env_name:str, packs:bool=False):
     if not packs:
         base_dir = pyrado.TEMP_DIR
@@ -23,6 +23,7 @@ def load_teachers(teacher_count:int, env_name:str, packs:bool=False):
         teachers = []
         teacher_envs = []
         teacher_expl_strat = []
+        teacher_critic = []
         ex_dirs = []
         for _ in range(teacher_count):
             # Get the experiment's directory to load from
@@ -42,6 +43,7 @@ def load_teachers(teacher_count:int, env_name:str, packs:bool=False):
             teachers.append(policy)
             teacher_envs.append(env_teacher)
             teacher_expl_strat.append(extra["expl_strat"])
+            teacher_critic.append(extra["vfcn"])
 
         for i, t in enumerate(teachers):
             if isinstance(t, Policy):
@@ -56,7 +58,7 @@ def load_teachers(teacher_count:int, env_name:str, packs:bool=False):
                     # Initialize hidden state var
                     hidden[i] = t.init_hidden()
 
-        return teachers, teacher_envs, teacher_expl_strat, hidden, ex_dirs
+        return teachers, teacher_envs, teacher_expl_strat, teacher_critic, hidden, ex_dirs
     else:
         packlist = ask_for_packlist()
         return load_packed_teachers(env_name, packlist, teacher_count)
@@ -96,13 +98,14 @@ def load_student(dt:float, env_type:str, folder:str, max_steps:int):
 def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False):
     pack_path = f'{pyrado.TEMP_DIR}/packs/{env_name}'
 
-    teachers, teacher_envs, teacher_expl_strat, hidden, ex_dirs = load_teachers(teacher_count, env_name, packs)
+    teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs = load_teachers(teacher_count, env_name, packs)
 
     pack = {
-        "teachers": teachers, 
-        "teacher_envs": teacher_envs, 
-        "teacher_expl_strat": teacher_expl_strat, 
-        "hidden": hidden, 
+        "teachers": teachers,
+        "teacher_envs": teacher_envs,
+        "teacher_expl_strat": teacher_expl_strat,
+        "teacher_critics": teacher_critics,
+        "hidden": hidden,
         "ex_dirs": ex_dirs}
 
     if not os.path.exists(pack_path):
@@ -111,19 +114,20 @@ def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False)
 
     for env in teacher_envs:
         env.close()
-    
+
     print('Finished packing teachers.')
 
 
 def load_packed_teachers(env_name:str, packs:list, teacher_count:int):
     teacher_counts = packs[0]
     suffixes = [ f'{p}' for p in packs[1]]
-    all_teachers, all_teacher_envs, all_teacher_expl_strat, all_hidden, all_ex_dirs = [], [], [], [], []
+    all_teachers, all_teacher_envs, all_teacher_expl_strat, all_teacher_critic, all_hidden, all_ex_dirs = [], [], [], [], [], []
     for i in range(len(teacher_counts)):
-        teachers, teacher_envs, teacher_expl_strat, hidden, ex_dirs = load_specific_packed_teachers(teacher_counts[i], env_name, suffixes[i])
+        teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs = load_specific_packed_teachers(teacher_counts[i], env_name, suffixes[i])
         all_teachers += teachers
         all_teacher_envs += teacher_envs
         all_teacher_expl_strat += teacher_expl_strat
+        all_teacher_critic += teacher_critics
         all_hidden += hidden
         all_ex_dirs += ex_dirs
     print(f'Loaded {len(all_teachers)} teachers.')
@@ -133,14 +137,14 @@ def load_packed_teachers(env_name:str, packs:list, teacher_count:int):
         print(f'Using only the first {teacher_count} of them.')
     elif len(all_teachers) < teacher_count:
         raise pyrado.ValueErr(given=teacher_count, given_name='teacher_count', l_constraint=len(all_teachers))
-    return all_teachers[:teacher_count], all_teacher_envs[:teacher_count], all_teacher_expl_strat[:teacher_count], all_hidden[:teacher_count], all_ex_dirs[:teacher_count]
+    return all_teachers[:teacher_count], all_teacher_envs[:teacher_count], all_teacher_expl_strat[:teacher_count], all_teacher_critic[:teacher_count], all_hidden[:teacher_count], all_ex_dirs[:teacher_count]
 
 
 def load_specific_packed_teachers(teacher_count:int, env_name:str, suffix:str):
     pack_path = f'{pyrado.TEMP_DIR}/packs/{env_name}'
     pack = load(obj=None, name="teachers", file_ext="pkl", load_dir=pack_path, meta_info={"prefix":teacher_count, "suffix":suffix})
-    teachers, teacher_envs, teacher_expl_strat, hidden, ex_dirs = pack["teachers"], pack["teacher_envs"], pack["teacher_expl_strat"], pack["hidden"], pack["ex_dirs"]
-    return teachers, teacher_envs, teacher_expl_strat, hidden, ex_dirs 
+    teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs = pack["teachers"], pack["teacher_envs"], pack["teacher_expl_strat"], pack["teacher_critics"], pack["hidden"], pack["ex_dirs"]
+    return teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs
 
 
 def ask_for_packlist():
