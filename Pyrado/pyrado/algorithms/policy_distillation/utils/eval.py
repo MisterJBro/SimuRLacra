@@ -85,14 +85,15 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000, path=''):
     return su
 
 
-def check_performance(env, policy, name, n=1000, path=''):
+def check_performance(env, policy, name, n=1000, path='', verbose=True):
     print('Started checking performance.')
     start=datetime.now()
     su = []
     # Test the policy in the environment
     done, param, state = False, None, None
     for i in range(n):
-        print('rollout', i, '/', n-1)
+        if verbose:
+            print('rollout', i, '/', n-1)
         ro = rollout(
             env,
             policy,
@@ -102,7 +103,8 @@ def check_performance(env, policy, name, n=1000, path=''):
         )
         # print_domain_params(env.domain_param)
         su.append(ro.undiscounted_return())
-        print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
+        if verbose:
+            print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
         done, param, state = False, None, None #done, state, param = after_rollout_query(env, policy, ro)
     sums = np.array(su)
     print('Endsumme (' + name + ' from', n, 'reps ): MEAN =', np.mean(sums), 'STD =', np.std(sums),

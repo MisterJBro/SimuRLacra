@@ -4,14 +4,14 @@ from multiprocessing import Pipe
 from pyrado.sampling.buffer import Buffer
 from pyrado.sampling.env_worker import Worker
 from pyrado.environments.base import Env
-
+from typing import List
 
 class Envs:
     """
     Central instance to manage all environment workers. Gives them commands in parallel.
     """
 
-    def __init__(self, cpu_num: int, env_num: int, env: Env, game_len: int, gamma: float, lam: float):
+    def __init__(self, cpu_num: int, env_num: int, env: Env, game_len: int, gamma: float, lam: float, env_list: List = []):
         """
         Constructor
 
@@ -37,7 +37,7 @@ class Envs:
         self.env_num_worker = int(env_num / cpu_num)
         self.rest_env_num = (env_num % cpu_num) + self.env_num_worker
         self.workers = [
-            Worker(env, self.channels[i][1], i, self.rest_env_num if i == cpu_num - 1 else self.env_num_worker)
+            Worker(env_list[i] if len(env_list) == cpu_num else env, self.channels[i][1], i, self.rest_env_num if i == cpu_num - 1 else self.env_num_worker)
             for i in range(cpu_num)
         ]
         [w.start() for w in self.workers]

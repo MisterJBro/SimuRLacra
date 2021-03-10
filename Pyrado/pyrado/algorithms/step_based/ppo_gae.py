@@ -159,7 +159,6 @@ class PPOGAE(Algorithm):
     def sample_batch(self) -> np.ndarray:
         """ Sample batch of trajectories for training. """
         obss = self.envs.reset()
-        scale = self.policy.net.output_scale
 
         for _ in range(self.traj_len):
             obss = to.as_tensor(obss).to(self.device)   
