@@ -34,7 +34,6 @@ parser.add_argument('--max_steps', type=int, default=8_000)
 parser.add_argument('--teacher_count', type=int, default=8)
 parser.add_argument('--num_epochs', type=int, default=500)
 parser.add_argument('--num_iters', type=int, default=20)
-parser.add_argument('--goal_reward', type=int, default=7000)
 parser.add_argument('--env_name', type=str, default='qq-su')
 parser.add_argument('--packs', action='store_true', default=False)
 
@@ -166,14 +165,16 @@ if __name__ == "__main__":
 
 
     a_pool = multiprocessing.Pool(processes=4)
-    su = a_pool.starmap(check_performance, [(env, deepcopy(student), f'student_on_teacher_env_{idx}', 1000, temp_path) for idx, env in enumerate(teacher_envs)])
+    su = a_pool.starmap_async(check_performance, [(env, deepcopy(expl_strat), f'student_on_teacher_env_{idx}', 1000, temp_path) for idx, env in enumerate(teacher_envs)]).get()
+    a_pool.close()
+    a_pool.join()
 
     # Check student performance on teacher envs:
-    #for idx, env in enumerate(teacher_envs):
-    #    check_performance(env=env, policy=student, name=f'student_on_teacher_env_{idx}', path=temp_path)
-    #    env.close()
+    for idx, env in enumerate(teacher_envs):
+        #    check_performance(env=env, policy=student, name=f'student_on_teacher_env_{idx}', path=temp_path)
+        env.close()
 
-    plot_distillation_performance(env_name, timestamp, goalReward=args.goal_reward, showPlot=False)
+    plot_distillation_performance(env_name, timestamp, goalReward=args.max_steps*.7, showPlot=False)
 
     env_sim.close()
     env_real.close()

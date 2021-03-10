@@ -27,7 +27,7 @@ from datetime import datetime
 
 def check_net_performance(env, nets, names, max_len=8000, reps=1000, path=''):
     start = datetime.now()
-    print(f'Started checking net performance: {len(nets)} networks on {env.name}')
+    print(f'Started checking net performance: {len(nets)} networks on {env.name} ({start.strftime("%Y-%m-%d_%H:%M:%S")})')
     envs = Envs(cpu_num=min(mp.cpu_count(), len(nets)), env_num=len(nets), env=env, game_len=max_len, gamma=0.99, lam=0.97)
     su = []
     hidden = []
@@ -108,7 +108,7 @@ def check_performance(env, policy, name, n=1000, path=''):
     print('Endsumme (' + name + ' from', n, 'reps ): MEAN =', np.mean(sums), 'STD =', np.std(sums),
           'MIN =', np.min(sums), 'MAX =', np.max(sums), 'MEDIAN =', np.median(sums))
     save_performance(start, sums, np.array([name]), env.name, path)
-    return np.mean(sums)-np.std(sums)
+    return np.mean(sums)
 
 """
 def check_performance(env, policy, name:str, n:int=1000, path=''):
@@ -175,6 +175,22 @@ def check_old_teacher_performance(env_name:str, teacher_count:int=8, frequency:i
     env_sim.close
 
 
+def check_performance_on_random_envs(policy, count:int, ex_dir):
+    from pyrado.algorithms.policy_distillation.train_teachers import get_random_envs
+    test_envs = get_random_envs(env_count = count, env = env_sim)
+
+    a_pool = multiprocessing.Pool(processes=4)
+    su = a_pool.starmap_async(check_performance, [(env, deepcopy(policy), f'student_on_random_env_{idx}', 1000, ex_dir) for idx, env in enumerate(test_envs)]).get()
+    a_pool.close()
+    a_pool.join()
+
+    # Check student performance on teacher envs:
+    for idx, env in enumerate(test_envs):
+        env.close()
+    
+    return su
+
+
 if __name__ == "__main__":
     freeze_support()
     to.set_default_dtype(to.float32)
@@ -202,12 +218,14 @@ if __name__ == "__main__":
 
     if args.singlePolicy:
         if not args.student:
-            ex_dir = ask_for_experiment(env_name=args.env_name, base_dir=pyrado.TEMP_DIR)
+            ex_dir = ask_for_experiment(max_display=150, env_name=args.env_name, base_dir=pyrado.TEMP_DIR)
             env_sim, _, extra = load_experiment(ex_dir)
             expl_strat = extra["expl_strat"]
             print(extra['highest_avg_ret'])
         else:
-            student, env_sim, expl_strat = load_student(1.0/args.frequency, args.env_name, args.folder, args.max_steps)
+            student, env_sim, expl_strat, ex_dir_stud = load_student(1.0/args.frequency, args.env_name, args.folder, args.max_steps)
+            if args.random_envs:
+                check_performance_on_random_envs(expl_strat, args.teacher_count, ex_dir_stud)
 
 
         #env_sim will not be used here, because we want to evaluate the policy on a different environment
@@ -233,7 +251,6 @@ if __name__ == "__main__":
                 # print_domain_params(env.domain_param)
                 print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
                 done, state, param = after_rollout_query(env_sim, expl_strat, ro)
-
         else:
             # Evaluate
             check_performance(env_sim, expl_strat, 'student_after', n=args.reps)
