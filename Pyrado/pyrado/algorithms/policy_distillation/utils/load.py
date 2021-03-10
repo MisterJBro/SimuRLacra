@@ -90,7 +90,7 @@ def load_student(dt:float, env_type:str, folder:str, max_steps:int):
     expl_strat = NormalActNoiseExplStrat(student, std_init=0.6)
     expl_strat.load_state_dict(checkpoint['expl_strat'])
 
-    return student, env_sim, expl_strat
+    return student, env_sim, expl_strat, ex_dir
 
 
 def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False):
@@ -129,10 +129,10 @@ def load_packed_teachers(env_name:str, packs:list, teacher_count:int):
     print(f'Loaded {len(all_teachers)} teachers.')
     if teacher_count==None:
         teacher_count = len(all_teachers)
-    elif len(all_teachers) < teacher_count:
-        print(f'Using only the first {teacher_count} of them.')
     elif len(all_teachers) > teacher_count:
-        raise pyrado.ValueErr(given=teacher_count, given_name='teacher_count', le_constraint=len(all_teachers))
+        print(f'Using only the first {teacher_count} of them.')
+    elif len(all_teachers) < teacher_count:
+        raise pyrado.ValueErr(given=teacher_count, given_name='teacher_count', l_constraint=len(all_teachers))
     return all_teachers[:teacher_count], all_teacher_envs[:teacher_count], all_teacher_expl_strat[:teacher_count], all_hidden[:teacher_count], all_ex_dirs[:teacher_count]
 
 
