@@ -140,7 +140,7 @@ def rollout_wrapper(env, policy, n, i):
 """
 
 def save_performance(start, sums, names, env_name='', path=''):
-    env_str = f'{env_name}_' if env_name!='' else ''
+    env_str = f'{env_name}_{names[0]}' if env_name!='' else ''
 
     if path == '':
         np.save( f'{pyrado.TEMP_DIR}/eval/sums_{env_str}{start.strftime("%Y-%m-%d_%H:%M:%S")}', sums)
@@ -183,12 +183,12 @@ def check_old_teacher_performance(env_name:str, teacher_count:int=8, frequency:i
     env_sim.close
 
 
-def check_performance_on_random_envs(policy, count:int, ex_dir):
+def check_performance_on_random_envs(policy, env, count:int, ex_dir, iters):
     from pyrado.algorithms.policy_distillation.train_teachers import get_random_envs
-    test_envs = get_random_envs(env_count = count, env = env_sim)
+    test_envs = get_random_envs(env_count = count, env = env)
 
     a_pool = multiprocessing.Pool(processes=4)
-    su = a_pool.starmap_async(check_performance, [(env, deepcopy(policy), f'student_on_random_env_{idx}', 1000, ex_dir) for idx, env in enumerate(test_envs)]).get()
+    su = a_pool.starmap_async(check_performance, [(env, deepcopy(policy), f'student_on_random_env_{idx}', iters, ex_dir) for idx, env in enumerate(test_envs)]).get()
     a_pool.close()
     a_pool.join()
 
@@ -208,6 +208,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--singlePolicy', action='store_true', default=False)
+    parser.add_argument('--random_envs', action='store_true', default=False)
     parser.add_argument('--student', action='store_true', default=False)
     parser.add_argument('--folder', type=str, default=None)
     parser.add_argument('--simulate', action='store_true', default=False)
@@ -216,7 +217,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--teacher_count', type=int, default=8)
     parser.add_argument('--frequency', type=int, default=250)
-    parser.add_argument('--max_steps', type=int, default=600)
+    parser.add_argument('--max_steps', type=int, default=1500)
     parser.add_argument('--reps', type=int, default=1000)
     parser.add_argument('--env_name', type=str, default='qq-su')
     parser.add_argument('--packs', action='store_true', default=False)
@@ -233,7 +234,9 @@ if __name__ == "__main__":
         else:
             student, env_sim, expl_strat, ex_dir_stud = load_student(1.0/args.frequency, args.env_name, args.folder, args.max_steps)
             if args.random_envs:
-                check_performance_on_random_envs(expl_strat, args.teacher_count, ex_dir_stud)
+                print(ex_dir_stud)
+                check_performance_on_random_envs(expl_strat, env_sim, args.teacher_count, ex_dir_stud, 100)
+                exit()
 
 
         #env_sim will not be used here, because we want to evaluate the policy on a different environment
