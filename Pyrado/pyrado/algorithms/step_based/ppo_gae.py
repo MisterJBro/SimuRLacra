@@ -98,7 +98,7 @@ class PPOGAE(Algorithm):
         # Policy
         self.device = to.device(device)
         self.critic = critic
-        self._expl_strat = NormalActNoiseExplStrat(self._policy, std_init=std_init)
+        self._expl_strat = NormalActNoiseExplStrat(self._policy, std_init=std_init, std_min=0.1)
         self.optimizer = to.optim.Adam(
             [
                 {"params": self.policy.parameters()},
@@ -187,7 +187,8 @@ class PPOGAE(Algorithm):
 
             logp = dist.log_prob(act).sum(-1)
             loss_policy, kl = self.loss_fcn(logp, old_logp, adv)
-            loss_policy += 0.01*dist.entropy().mean()
+            #loss_policy += 0.01*dist.entropy().mean()
+            loss_policy += self.expl_strat.std.mean()*1.0
 
             # Early stopping if kl divergence too high
             if kl > self.max_kl:

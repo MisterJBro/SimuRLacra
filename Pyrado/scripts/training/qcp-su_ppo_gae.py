@@ -32,22 +32,9 @@ if __name__ == "__main__":
     # Set seed if desired
     pyrado.set_seed(args.seed, verbose=True)
 
-    # Upper and lower bounds
-    """elb = {
-        "x": -0.357,
-        "x_dot": -1.628,
-        "theta_dot": -32.8319,
-    }
-    eub = {
-        "x": 0.357,
-        "x_dot": 1.628,
-        "theta_dot": 32.8319,
-    }"""
-
     # Environment
     env_hparams = dict(dt=1 / 250.0, max_steps=1500)
     env = ActNormWrapper(QCartPoleSwingUpSim(**env_hparams))
-    #env = ObsNormWrapper(env, explicit_lb=elb, explicit_ub=eub)
     print(env)
 
     # Policy

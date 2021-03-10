@@ -36,7 +36,7 @@ from pyrado.environments.quanser import max_act_qq
 from pyrado.spaces.box import BoxSpace
 from pyrado.tasks.base import Task
 from pyrado.tasks.desired_state import RadiallySymmDesStateTask
-from pyrado.tasks.reward_functions import ExpQuadrErrRewFcn
+from pyrado.tasks.reward_functions import ExpQuadrErrRewFcn, QCartPoleSwingUpRewFcn
 
 
 class QQubeSim(SimPyEnv, Serializable):
@@ -245,7 +245,9 @@ class QQubeSwingUpSim(QQubeSim):
         Q = task_args.get("Q", np.diag([1.0, 1.0, 2e-2, 5e-3]))
         R = task_args.get("R", np.diag([4e-3]))
 
-        return RadiallySymmDesStateTask(self.spec, state_des, ExpQuadrErrRewFcn(Q, R), idcs=[1])
+        rew_fcn = QCartPoleSwingUpRewFcn(factor=0.9, max_dist = 1.0, max_act = 3.0, scales = [np.pi, 2.0]) #ExpQuadrErrRewFcn(Q, R)
+
+        return RadiallySymmDesStateTask(self.spec, state_des, rew_fcn, idcs=[1])
 
     def observe(self, state, dtype=np.ndarray):
         if dtype is np.ndarray:

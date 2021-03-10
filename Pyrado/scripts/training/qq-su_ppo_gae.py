@@ -34,12 +34,12 @@ if __name__ == "__main__":
     pyrado.set_seed(args.seed, verbose=True)
 
     # Environment
-    env_hparams = dict(dt=1 / 250.0, max_steps=600)
+    env_hparams = dict(dt=1 / 250.0, max_steps=1500)
     env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
     print(env)
 
     # Policy
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=1.0)
     policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
@@ -48,29 +48,24 @@ if __name__ == "__main__":
             p /= 100
 
     # Critic
-    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
+    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
     critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
-
-    # Reduce weights of last layer, recommended by paper
-    #for p in critic.net.output_layer.parameters():
-    #    with to.no_grad():
-    #        p /= 100
 
     # Subroutine
     algo_hparam = dict(
-        max_iter=50,
+        max_iter=100,
         tb_name="ppo",
-        traj_len=8_000,
+        traj_len=1500,
         gamma=0.99,
         lam=0.97,
-        env_num=9,
+        env_num=30,
         cpu_num=min(9,mp.cpu_count()-1),
-        epoch_num=60,
+        epoch_num=40,
         device="cpu",
         max_kl=0.05,
-        std_init=0.6,
-        clip_ratio=0.25,
-        lr=3e-3,
+        std_init=1.0,
+        clip_ratio=0.1,
+        lr=2e-3,
     )
     algo = PPOGAE(ex_dir, env, policy, critic, **algo_hparam)
 
