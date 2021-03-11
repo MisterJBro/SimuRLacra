@@ -32,14 +32,14 @@ if __name__ == "__main__":
 
     # Set seed if desired
     pyrado.set_seed(args.seed, verbose=True)
-
+ 
     # Environment
     env_hparams = dict(dt=1 / 250.0, max_steps=1500)
     env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
     print(env)
 
     # Policy
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=0.75)
     policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     # Subroutine
     algo_hparam = dict(
-        max_iter=100,
+        max_iter=200,
         tb_name="ppo",
         traj_len=1500,
         gamma=0.99,

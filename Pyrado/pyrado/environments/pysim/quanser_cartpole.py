@@ -423,6 +423,6 @@ class QCartPoleSwingUpSim(QCartPoleSim, Serializable):
     def _create_task(self, task_args: dict) -> Task:
         # Define the task including the reward function
         state_des = task_args.get("state_des", np.array([0.0, np.pi, 0.0, 0.0]))
-        rew_fcn = QCartPoleSwingUpRewFcn(factor= 0.9, max_dist = 0.20, max_act = 5.0, scales = [np.pi, 0.4])
+        rew_fcn = QCartPoleSwingUpRewFcn(factor= 0.9, max_dist = 0.20, max_act = 6.0, scales = [np.pi, 0.4])
 
         return RadiallySymmDesStateTask(self.spec, state_des, rew_fcn, idcs=[1])

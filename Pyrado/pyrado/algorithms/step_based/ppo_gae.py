@@ -48,6 +48,8 @@ class PPOGAE(Algorithm):
         clip_ratio: float = 0.25,
         lr: float = 3e-3,
         logger: StepLogger = None,
+        early_stopping: bool = True,
+        std_loss: float = 0.1,
     ):
         """
         Constructor
@@ -94,11 +96,13 @@ class PPOGAE(Algorithm):
         self.epoch_num = epoch_num
         self.max_kl = max_kl
         self.clip_ratio = clip_ratio
+        self.end = False
+        self.early_stopping = early_stopping
 
         # Policy
         self.device = to.device(device)
         self.critic = critic
-        self.std_loss = 1.0
+        self.std_loss = std_loss
         self._expl_strat = NormalActNoiseExplStrat(self._policy, std_init=std_init, std_min=0.1)
         self.optimizer = to.optim.Adam(
             [
@@ -136,6 +140,9 @@ class PPOGAE(Algorithm):
         kl_approx = (log_probs_old - log_probs).mean().item()
         return loss, kl_approx
 
+    def stopping_criterion_met(self) -> bool:
+        return self.end
+
     def step(self, snapshot_mode: str, meta_info: dict = None):
         # Sample batch
         rets, all_lengths = self.sample_batch()
@@ -146,9 +153,15 @@ class PPOGAE(Algorithm):
         self.logger.add_value("avg return", np.mean(rets), 4)
         self.logger.add_value("min return", np.min(rets), 4)
         self.logger.add_value("std return", np.std(rets), 4)
-        self.logger.add_value("std var", self.expl_strat.std, 4)
+        self.logger.add_value("std var", self.expl_strat.std.item(), 4)
         self.logger.add_value("avg rollout len", np.mean(all_lengths), 4)
         self.logger.add_value("num total samples", np.sum(all_lengths))
+
+        # Early stoping
+        if self.early_stopping and self._curr_iter > 50 and np.mean(rets) > 0.8 * self.traj_len and self.expl_strat.std.item() < 0.3:
+            print('Reached optimal policy! Early stop!' )
+            self.end = True
+            return
 
         # Update policy and value function
         self.update()

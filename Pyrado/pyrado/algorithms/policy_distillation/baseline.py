@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser()
 # Environment
 parser.add_argument('--frequency', type=int, default=250)
 parser.add_argument('--env_type', type=str, default='qcp-su')
-parser.add_argument('--max_steps', type=int, default=8_000)
+parser.add_argument('--max_steps', type=int, default=1500)
 parser.add_argument('--seed', type=int, default=None)
 
 if __name__ == "__main__":
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     print(env)
 
     # Policy
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.nn.ReLU(), output_nonlin=to.tanh, output_scale=0.8)
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=0.75)
     policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
@@ -74,24 +74,25 @@ if __name__ == "__main__":
             p /= 100
 
     # Critic
-    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.nn.ReLU())
+    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
     critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
     algo_hparam = dict(
-        max_iter=100,
+        max_iter=1000,
         tb_name="ppo",
-        traj_len=16_000,
+        traj_len=args.max_steps,
         gamma=0.99,
         lam=0.97,
-        env_num=9,
+        env_num=30,
         cpu_num=min(9,mp.cpu_count()-1),
         epoch_num=40,
         device="cpu",
         max_kl=0.05,
         std_init=1.0,
-        clip_ratio=0.2,
+        clip_ratio=0.1,
         lr=2e-3,
+        early_stopping=False
     )
     algo = PPOGAE(ex_dir, env, policy, critic, **algo_hparam)
 
