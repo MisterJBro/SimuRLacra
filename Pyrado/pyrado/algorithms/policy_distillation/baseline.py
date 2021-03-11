@@ -22,6 +22,7 @@ from pyrado.utils.argparser import get_argparser
 from pyrado.utils.data_types import EnvSpec
 from pyrado.spaces import ValueFunctionSpace
 import multiprocessing as mp
+from pyrado.policies.recurrent.rnn import LSTMPolicy
 import argparse
 
 # Parameters
@@ -43,10 +44,10 @@ if __name__ == "__main__":
 
     # Environment
     env_hparams = dict(dt=1 / args.frequency, max_steps=args.max_steps)
-    
+
     # Experiment (set seed before creating the modules)
     if args.env_type == 'qcp-su':
-        ex_dir = setup_experiment(QCartPoleSwingUpSim.name, f"{PPOGAE.name}_baseline_{QCartPoleSwingUpAndBalanceCtrl.name}_{args.frequency}Hz")
+        ex_dir = setup_experiment(QCartPoleSwingUpSim.name, f"{PPOGAE.name}_baseline_{QCartPoleSwingUpAndBalanceCtrl.name}_{args.frequency}Hz_low_var")
         env = QCartPoleSwingUpSim(**env_hparams)
     elif args.env_type == 'qq-su':
         ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PPOGAE.name}_baseline_{QQubeSwingUpSim.name}_{args.frequency}Hz")
@@ -65,17 +66,21 @@ if __name__ == "__main__":
     print(env)
 
     # Policy
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=0.75)
-    policy = FNNPolicy(spec=env.spec, **policy_hparam)
+    #policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=0.75)
+    #policy = FNNPolicy(spec=env.spec, **policy_hparam)
+    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh)
+    policy = LSTMPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
-    for p in policy.net.output_layer.parameters():
+    for p in policy.output_layer.parameters(): # policy.net.output_layer for FNN
         with to.no_grad():
             p /= 100
 
     # Critic
-    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
-    critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+    #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
+    #critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+    critic_hparam = dict(hidden_size=64, num_recurrent_layers=1)
+    critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
     algo_hparam = dict(
@@ -87,12 +92,13 @@ if __name__ == "__main__":
         env_num=30,
         cpu_num=min(9,mp.cpu_count()-1),
         epoch_num=40,
-        device="cpu",
+        device="cuda:0",
         max_kl=0.05,
         std_init=1.0,
         clip_ratio=0.1,
         lr=2e-3,
-        early_stopping=False
+        early_stopping=False,
+        std_loss = 0.5,
     )
     algo = PPOGAE(ex_dir, env, policy, critic, **algo_hparam)
 

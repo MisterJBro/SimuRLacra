@@ -75,7 +75,7 @@ class Envs:
             for i, c in enumerate(self.channels)
         ]
         msg = [c[0].recv() for c in self.channels]
-        obs_msg, rew_msg = [], []
+        obs_msg, rew_msg, done_ind = [], [], []
         for i, (o, r, d) in enumerate(msg):
             obs_msg.append(o)
             rew_msg.append(r)
@@ -84,13 +84,14 @@ class Envs:
                 if d[j]:
                     index = j + self.env_num_worker * i
                     self.buf.sections[index].append(self.buf.ptr + 1)
+                    done_ind.append(index)
 
         rews = np.concatenate(rew_msg, axis=0)
         n_obss = np.concatenate(obs_msg, axis=0)
-        self.buf.store(self.obss, acts, rews, vals)
+        self.buf.store(self.obss, acts, rews, vals, done_ind)
         self.obss = n_obss
 
-        return n_obss
+        return n_obss, done_ind
 
     def close(self):
         """ Closes all workers and their environments. """
@@ -110,7 +111,9 @@ class Envs:
 
         :param device: device for tensors
         """
-        return to_tensors(self.buf.get_data(), device)
+        data_tensors = to_tensors(self.buf.get_data(), device)
+        data_tensors.append(self.buf.sections)
+        return data_tensors
 
 
 def to_tensors(arrays: np.ndarray, device: to.device):

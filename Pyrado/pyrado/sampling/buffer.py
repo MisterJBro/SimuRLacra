@@ -26,7 +26,7 @@ class Buffer:
         self.obs_buf = np.empty(
             (
                 num,
-                size,
+                size,   
             )
             + obs_dim,
             dtype=np.float32,
@@ -42,6 +42,7 @@ class Buffer:
 
         self.ptr = 0
         self.sections = [[0] for _ in range(num)]
+        self.dones = []
         self.size = size
         self.gamma = gamma
         self.lam = lam
@@ -54,8 +55,9 @@ class Buffer:
 
         self.ptr = 0
         self.sections = [[0] for _ in range(self.num)]
+        self.dones = []
 
-    def store(self, obs: np.ndarray, act: np.ndarray, rew: np.ndarray, val: np.ndarray):
+    def store(self, obs: np.ndarray, act: np.ndarray, rew: np.ndarray, val: np.ndarray, done):
         """
         Stores a set of information for a single timestep.
 
@@ -71,6 +73,7 @@ class Buffer:
         self.rew_buf[:, self.ptr] = rew
         self.val_buf[:, self.ptr] = val
         self.ptr += 1
+        self.dones.append(done)
 
     def avg_ret(self) -> float:
         """ Calculates the average return achieved. """
@@ -123,11 +126,11 @@ class Buffer:
 
     def get_data(self) -> Tuple[to.Tensor, to.Tensor, to.Tensor, to.Tensor, to.Tensor]:
         """ Get all valid data from the buffers. """
-        obs = self.obs_buf[: self.ptr].reshape((-1,) + self.obs_dim)
-        act = self.act_buf[: self.ptr].reshape((-1,) + self.act_dim)
-        rew = self.rew_buf[: self.ptr].reshape(-1)
-        ret = self.ret_buf[: self.ptr].reshape(-1)
-        adv = self.adv_buf[: self.ptr].reshape(-1)
+        obs = self.obs_buf[:, : self.ptr].reshape((-1,) + self.obs_dim)
+        act = self.act_buf[:, : self.ptr].reshape((-1,) + self.act_dim)
+        rew = self.rew_buf[:, : self.ptr].reshape(-1)
+        ret = self.ret_buf[:, : self.ptr].reshape(-1)
+        adv = self.adv_buf[:, : self.ptr].reshape(-1)
 
         return obs, act, rew, ret, adv
 

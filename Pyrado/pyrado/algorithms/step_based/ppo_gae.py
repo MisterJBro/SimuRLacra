@@ -113,12 +113,35 @@ class PPOGAE(Algorithm):
             lr=lr,
         )
         self.criterion = to.nn.SmoothL1Loss()
+        self.reset_states()
 
         print("Environment:        ", self.env.name)
         print("Observation shape:  ", self.obs_dim)
         print("Action number:      ", self.act_dim)
         print("Algorithm:          ", self.name)
         print("CPU count:          ", self.cpu_num)
+
+    def reset_states(self, env_indices = []):
+        """
+        Resets the hidden states.
+
+        :param env_indices: indices of the environment hidden states to reset. If empty, reset all. 
+        """
+        num_env_ind = len(env_indices)
+        if num_env_ind == 0:
+            if self.policy.is_recurrent:
+                self.hidden_policy = to.zeros(self.env_num, self.policy.hidden_size,
+                                device=self.device)
+            if self.critic.is_recurrent:
+                self.hidden_critic = to.zeros(self.env_num, self.critic.hidden_size,
+                                device=self.device)
+        else:
+            if self.policy.is_recurrent:
+                self.hidden_policy[env_indices] = to.zeros(num_env_ind, self.policy.hidden_size,
+                                device=self.device)
+            if self.critic.is_recurrent:
+                self.hidden_critic[env_indices] = to.zeros(num_env_ind, self.critic.hidden_size,
+                                device=self.device)
 
     @property
     def expl_strat(self) -> NormalActNoiseExplStrat:
@@ -172,32 +195,92 @@ class PPOGAE(Algorithm):
     def sample_batch(self) -> np.ndarray:
         """ Sample batch of trajectories for training. """
         obss = self.envs.reset()
+        self.reset_states()
 
         for _ in range(self.traj_len):
-            obss = to.as_tensor(obss).to(self.device)   
+            obss = to.as_tensor(obss).to(self.device)
             with to.no_grad():
-                acts = self.expl_strat(obss).cpu().numpy()
-                vals = self.critic(obss).reshape(-1).cpu().numpy()
-            obss = self.envs.step(acts, vals)
+                if self.expl_strat.is_recurrent:
+                    acts, self.hidden_policy = self.expl_strat(obss, self.hidden_policy)
+                else:
+                    acts = self.expl_strat(obss)
+                acts = acts.cpu().numpy()
+                if self.critic.is_recurrent:
+                    vals, self.hidden_critic = self.critic(obss, self.hidden_critic)
+                else:
+                    vals = self.critic(obss)
+                vals = vals.reshape(-1).cpu().numpy()
+            obss, done_ind = self.envs.step(acts, vals)
+            if len(done_ind) != 0:
+                self.reset_states(done_ind)
 
         rets = self.envs.ret_and_adv()
         return rets
 
     def update(self):
         """ Update the policy using PPO. """
-        obs, act, rew, ret, adv = self.envs.get_data(self.device)
+        obs, act, rew, ret, adv, dones = self.envs.get_data(self.device)
+        
+        # For recurrent pack observations
+        if self.policy.is_recurrent:
+            obs = obs.reshape(-1, self.traj_len, obs.shape[-1])
+            obs_list = []
+            lengths = []
+            for idx, section in enumerate(dones):
+                start = 0
+                for end in section[1:]:
+                    obs_list.append(obs[idx, start:end])
+                    lengths.append(end-start)
+                    start = end
+                if start != self.traj_len:
+                    obs_list.append(obs[idx, start:])
+                    lengths.append(self.traj_len-start)
+            obs = to.nn.utils.rnn.pad_sequence(obs_list)
+            obs = to.nn.utils.rnn.pack_padded_sequence(obs, lengths=lengths, enforce_sorted=False)
 
         with to.no_grad():
-            mean = self.policy(obs)
+            if self.policy.is_recurrent:
+                mean, _ = self.policy.rnn_layers(obs)   
+                mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
+                mean = to.cat([mean[:l, i] for i, l in enumerate(lens)], 0)
+
+                mean = self.policy.output_layer(mean)
+                if self.policy.output_nonlin is not None:
+                    mean = self.policy.output_nonlin(mean)
+            else:
+                mean = self.policy(obs)
             old_logp = self.expl_strat.action_dist_at(mean).log_prob(act).sum(-1)
 
         for i in range(self.epoch_num):
+            print(i)
             self.optimizer.zero_grad()
 
-            mean = self.policy(obs)
-            dist = self.expl_strat.action_dist_at(mean)
-            val = self.critic(obs).reshape(-1)
+            # Policy
+            if self.policy.is_recurrent:
+                mean, _ = self.policy.rnn_layers(obs)   
+                mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
+                mean = to.cat([mean[:l, i] for i, l in enumerate(lens)], 0)
 
+                mean = self.policy.output_layer(mean)
+                if self.policy.output_nonlin is not None:
+                    mean = self.policy.output_nonlin(mean)
+            else:
+                mean = self.policy(obs)
+            dist = self.expl_strat.action_dist_at(mean)
+
+            # Critic
+            if self.critic.is_recurrent:
+                val, _ = self.critic.rnn_layers(obs)   
+                val, lens = to.nn.utils.rnn.pad_packed_sequence(val)
+                val = to.cat([val[:l, i] for i, l in enumerate(lens)], 0)
+
+                val = self.critic.output_layer(val)
+                if self.critic.output_nonlin is not None:
+                    val = self.critic.output_nonlin(val)
+            else:
+                val = self.critic(obs)
+            val = val.reshape(-1)
+            
             logp = dist.log_prob(act).sum(-1)
             loss_policy, kl = self.loss_fcn(logp, old_logp, adv)
             loss_policy += self.expl_strat.std.mean() * self.std_loss
