@@ -5,7 +5,7 @@ from torch.utils.tensorboard import SummaryWriter, writer
 import argparse
 import os
 import pyrado
-from pyrado.algorithms.policy_distillation.utils.eval import check_net_performance, check_performance
+from pyrado.algorithms.policy_distillation.utils.eval import check_net_performance, check_performance, check_performance_on_random_envs
 from pyrado.algorithms.policy_distillation.utils.plot import plot_distillation_performance
 from pyrado.algorithms.policy_distillation.utils.load import load_teachers
 from pyrado.environments.pysim.quanser_cartpole import QCartPoleStabSim, QCartPoleSwingUpSim
@@ -183,7 +183,10 @@ if __name__ == "__main__":
         #check_performance(env=env, policy=expl_strat, name=f'student_on_teacher_env_{idx}', n=iters, path=temp_path, verbose=False)
         env.close()
 
-    plot_distillation_performance(env_name, timestamp, goalReward=args.max_steps*.7, showPlot=False)
+    random_env_count = 8
+    check_performance_on_random_envs(expl_strat, env_real, random_env_count, temp_path, iters)
+
+    plot_distillation_performance(env_name, timestamp, goalReward=args.max_steps*.7, showPlot=True)
 
     env_real.close()
     writer.flush()
