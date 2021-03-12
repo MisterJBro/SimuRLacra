@@ -32,6 +32,7 @@ Load and run a policy on the associated real-world Quanser environment
 import torch as to
 import pyrado
 import argparse
+import os
 
 from pyrado.environments.quanser.quanser_ball_balancer import QBallBalancerReal
 from pyrado.environments.quanser.quanser_cartpole import QCartPoleReal
@@ -49,7 +50,8 @@ from pyrado.domain_randomization.utils import wrap_like_other_env
 from pyrado.utils.input_output import print_cbt
 from pyrado.utils.argparser import get_argparser
 from pyrado.algorithms.policy_distillation.utils.load import load_student
-
+from pyrado.utils.saving_loading import save
+from datetime import datetime
 
 
 # Parameters
@@ -61,7 +63,7 @@ parser.add_argument('--env_type', type=str, default='qcp-su')
 parser.add_argument('--max_steps', type=int, default=8_000)
 parser.add_argument('--folder', type=str, default=None)
 parser.add_argument('--animation', type=bool, default=False)
-parser.add_argument('--verbose', type=bool, default=False)
+parser.add_argument('--verbose', action='store_true', default=False)
 
 if __name__ == "__main__":
 
@@ -69,7 +71,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dt = 1.0/args.frequency
 
-    student, env_sim, expl_strat, _ = load_student(dt, args.env_type, args.folder, args.max_steps)
+    student, env_sim, expl_strat, ex_dir = load_student(dt, args.env_type, args.folder, args.max_steps)
+    #student = expl_strat
+    print(student)
+    student.net.output_scale = 0.87
+    print(student.net.output_scale)
+
+    eval_path = os.path.join(ex_dir,"eval")
+    if not os.path.exists(eval_path):
+        os.makedirs(eval_path)
 
     # Detect the correct real-world counterpart and create it
     if isinstance(inner_env(env_sim), QBallBalancerSim):
@@ -92,4 +102,6 @@ if __name__ == "__main__":
             env_real, student, eval=True, record_dts=True, render_mode=RenderMode(text=args.verbose, video=args.animation)
         )
         print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
+        save(ro, "deploy", "pkl", eval_path, {"suffix":datetime.now().strftime("%Y-%m-%d_%H:%M:%S")})
+
         done, _, _ = after_rollout_query(env_real, student, ro)

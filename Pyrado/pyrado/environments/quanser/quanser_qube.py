@@ -38,7 +38,7 @@ from pyrado.policies.special.environment_specific import QQubePDCtrl, QQubeGoToL
 from pyrado.spaces.box import BoxSpace
 from pyrado.tasks.base import Task
 from pyrado.tasks.desired_state import RadiallySymmDesStateTask
-from pyrado.tasks.reward_functions import ExpQuadrErrRewFcn
+from pyrado.tasks.reward_functions import ExpQuadrErrRewFcn, QCartPoleSwingUpRewFcn
 from pyrado.utils.input_output import print_cbt, completion_context
 
 
@@ -74,8 +74,9 @@ class QQubeReal(QuanserReal, Serializable):
         state_des = task_args.get("state_des", np.array([0.0, np.pi, 0.0, 0.0]))
         Q = task_args.get("Q", np.diag([3e-1, 1.0, 2e-2, 5e-3]))
         R = task_args.get("R", np.diag([4e-3]))
-
-        return RadiallySymmDesStateTask(self.spec, state_des, ExpQuadrErrRewFcn(Q, R), idcs=[1])
+        rew_fcn = QCartPoleSwingUpRewFcn(factor=0.9, max_dist = 2.0, max_act = 4.0, scales = [np.pi, 2.0]) #ExpQuadrErrRewFcn(Q, R)
+        
+        return RadiallySymmDesStateTask(self.spec, state_des, rew_fcn, idcs=[1])
 
     def _create_spaces(self):
         # Define the spaces
