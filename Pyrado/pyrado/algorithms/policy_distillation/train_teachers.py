@@ -174,14 +174,24 @@ if __name__ == "__main__":
     a_pool.close()
     a_pool.join()
     print('Finished training all teachers!')
-
+    """
     if args.eval_after:
-      # check performance
-      nets = teachers[:]
-      names=[ f'teacher {t}' for t in range(len(teachers)) ]
-      check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
-      print('Finished evaluating all teachers!')
+        # check performance
+        nets = teachers[:]
+        names=[ f'teacher {t}' for t in range(len(teachers)) ]
+        #check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
 
+
+        a_pool = mp.Pool(processes=4)
+        su = a_pool.starmap_async(check_performance, [(deepcopy(env_sim), policy, names[idx], 1000, ex_dirs[idx]) for idx, policy in enumerate(teacher_expl_strat)]).get()
+        a_pool.close()
+        a_pool.join()
+
+        print(su)
+
+
+      print('Finished evaluating all teachers!')
+    """
     for env in teacher_envs:
         env.close()
 
