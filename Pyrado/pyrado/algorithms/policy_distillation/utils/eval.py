@@ -110,7 +110,7 @@ def check_performance(env, policy, name, n=1000, path='', verbose=True):
     print('Endsumme (' + name + ' from', n, 'reps ): MEAN =', np.mean(sums), 'STD =', np.std(sums),
           'MIN =', np.min(sums), 'MAX =', np.max(sums), 'MEDIAN =', np.median(sums))
     save_performance(start, sums, np.array([name]), env.name, path)
-    return (name, np.mean(sums), np.std(sums), sums)
+    return sums
 
 """
 def check_performance(env, policy, name:str, n:int=1000, path=''):
@@ -159,7 +159,7 @@ def check_pack_performance(teacher_envs, teacher_expl_strat, ex_dirs, reps):
     su = a_pool.starmap_async(check_performance, [(teacher_envs[idx], teacher_expl_strat[idx], names[idx], reps, ex_dirs[idx]) for idx in range(len(teacher_expl_strat))]).get()
     a_pool.close()
     a_pool.join()
-    return su[3], names
+    return su, names
 
 
 def check_old_teacher_performance(env_name:str, teacher_count:int=8, frequency:int=250, max_steps:int=600, reps:int=1000, packs:bool=None):
@@ -188,9 +188,6 @@ def check_old_teacher_performance(env_name:str, teacher_count:int=8, frequency:i
     a_pool.close()
     a_pool.join()
 
-    print(su[:2])
-
-    #check_net_performance(env=env_sim, nets=teachers[:], names=names, reps=reps)
     env_sim.close
 
 
