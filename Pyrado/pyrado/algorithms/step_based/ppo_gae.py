@@ -103,7 +103,7 @@ class PPOGAE(Algorithm):
         self.device = to.device(device)
         self.critic = critic
         self.std_loss = std_loss
-        self.max_backprop_len = 100
+        self.max_backprop_len = 80
         self._expl_strat = NormalActNoiseExplStrat(self._policy, std_init=std_init, std_min=0.1)
         self.optimizer = to.optim.Adam(
             [
@@ -228,7 +228,7 @@ class PPOGAE(Algorithm):
             # Slice observations into small sequence slices
             obs_list = []
             lengths = []
-            print(sections)
+            #print(sections)
             for idx, section in enumerate(sections):
                 section_list = []
                 section_lengths = []
@@ -251,7 +251,6 @@ class PPOGAE(Algorithm):
 
                 obs_list.append(section_list)
                 lengths.append(section_lengths)
-            print('---------------------')
 
             # Transpose observation land length lists
             tmp_list = []
@@ -266,13 +265,13 @@ class PPOGAE(Algorithm):
             obs_list = tmp_list
             lengths = tmp_lengths
 
-            t = 0
-            for a,b in zip(obs_list, lengths):
-                for c, d in zip(a,b):
-                    print(c.shape, d)
-                    t += d
-                print('-----')
-            print(t)
+            #t = 0
+            #for a,b in zip(obs_list, lengths):
+            #    for c, d in zip(a,b):
+            #        print(c.shape, d)
+            #        t += d
+            #    print('-----')
+            #print(t)
 
             # Create list of packed padded sequences
             obs = []
@@ -284,12 +283,12 @@ class PPOGAE(Algorithm):
         with to.no_grad():
             if self.policy.is_recurrent:
                 hidden = to.zeros((2, self.policy.num_recurrent_layers, len(obs_list[0]), self.policy._hidden_size))
-                means = [[] for o in obs]
+                means = [[] for _ in range(len(obs_list[0]))]
                 for o in obs:
                     mean, hidden = self.policy.rnn_layers(o, hidden)
                     mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
-                    for i, m in enumerate([mean[:l, i] for i, l in enumerate(lens)]):
-                        means[i].append(m)
+                    for i2, m in enumerate([mean[:l, i] for i, l in enumerate(lens)]):
+                        means[i2].append(m)
                 # Nested list to flat list
                 tmp_means = []
                 for mean_list in means:
@@ -311,12 +310,12 @@ class PPOGAE(Algorithm):
             # Policy
             if self.policy.is_recurrent:
                 hidden = to.zeros((2, self.policy.num_recurrent_layers, len(obs_list[0]), self.policy._hidden_size))
-                means = [[] for o in obs]
+                means = [[] for _ in range(len(obs_list[0]))]
                 for o in obs:
                     mean, hidden = self.policy.rnn_layers(o, hidden)
                     mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
-                    for i, m in enumerate([mean[:l, i] for i, l in enumerate(lens)]):
-                        means[i].append(m)
+                    for i2, m in enumerate([mean[:l, i] for i, l in enumerate(lens)]):
+                        means[i2].append(m)
                 # Nested list to flat list
                 tmp_means = []
                 for mean_list in means:
@@ -334,12 +333,12 @@ class PPOGAE(Algorithm):
             # Critic
             if self.critic.is_recurrent:
                 hidden = to.zeros((2, self.policy.num_recurrent_layers, len(obs_list[0]), self.policy._hidden_size))
-                vals = [[] for o in obs]
+                vals = [[] for _ in range(len(obs_list[0]))]
                 for o in obs:
                     val, hidden = self.policy.rnn_layers(o, hidden)
                     val, lens = to.nn.utils.rnn.pad_packed_sequence(val)
-                    for i, m in enumerate([val[:l, i] for i, l in enumerate(lens)]):
-                        vals[i].append(m)
+                    for i2, m in enumerate([val[:l, i] for i, l in enumerate(lens)]):
+                        vals[i2].append(m)
                 # Nested list to flat list
                 tmp_vals = []
                 for val_list in vals:

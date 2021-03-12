@@ -74,7 +74,7 @@ if __name__ == "__main__":
     # Reduce weights of last layer, recommended by paper
     for p in policy.output_layer.parameters(): # policy.net.output_layer for FNN
         with to.no_grad():
-            p *= 100
+            p /= 100
 
     # Critic
     #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
@@ -89,8 +89,8 @@ if __name__ == "__main__":
         traj_len=args.max_steps,
         gamma=0.99,
         lam=0.97,
-        env_num=3,#30,
-        cpu_num=1,#min(9,mp.cpu_count()-1),
+        env_num=30,
+        cpu_num=min(9,mp.cpu_count()-1),
         epoch_num=40,
         device="cpu",
         max_kl=0.05,
