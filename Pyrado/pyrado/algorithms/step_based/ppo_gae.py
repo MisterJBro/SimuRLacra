@@ -103,6 +103,7 @@ class PPOGAE(Algorithm):
         self.device = to.device(device)
         self.critic = critic
         self.std_loss = std_loss
+        self.max_backprop_len = 100
         self._expl_strat = NormalActNoiseExplStrat(self._policy, std_init=std_init, std_min=0.1)
         self.optimizer = to.optim.Adam(
             [
@@ -219,30 +220,82 @@ class PPOGAE(Algorithm):
 
     def update(self):
         """ Update the policy using PPO. """
-        obs, act, rew, ret, adv, dones = self.envs.get_data(self.device)
+        obs, act, rew, ret, adv, sections, dones = self.envs.get_data(self.device)
         
         # For recurrent pack observations
         if self.policy.is_recurrent:
             obs = obs.reshape(-1, self.traj_len, obs.shape[-1])
+            # Slice observations into small sequence slices
             obs_list = []
             lengths = []
-            for idx, section in enumerate(dones):
+            print(sections)
+            for idx, section in enumerate(sections):
+                section_list = []
+                section_lengths = []
                 start = 0
-                for end in section[1:]:
-                    obs_list.append(obs[idx, start:end])
-                    lengths.append(end-start)
+                sections_iter = section[1:]
+                if section[-1] != self.traj_len:
+                    sections_iter = section[1:] + [self.traj_len]
+                for end in sections_iter:
+                    section_len = end-start
+                    s = 0
+                    while section_len >= self.max_backprop_len:
+                        section_list.append(obs[idx, start+ self.max_backprop_len*s:start+ self.max_backprop_len*(s+1)])
+                        section_lengths.append(self.max_backprop_len)
+                        section_len -= self.max_backprop_len
+                        s += 1
+                    if section_len > 0:
+                        section_list.append(obs[idx, start+ self.max_backprop_len*s:end])
+                        section_lengths.append(section_len)
                     start = end
-                if start != self.traj_len:
-                    obs_list.append(obs[idx, start:])
-                    lengths.append(self.traj_len-start)
-            obs = to.nn.utils.rnn.pad_sequence(obs_list)
-            obs = to.nn.utils.rnn.pack_padded_sequence(obs, lengths=lengths, enforce_sorted=False)
+
+                obs_list.append(section_list)
+                lengths.append(section_lengths)
+            print('---------------------')
+
+            # Transpose observation land length lists
+            tmp_list = []
+            tmp_lengths = []
+            for sections, ls in zip(obs_list, lengths):
+                for idx, (s, l) in enumerate(zip(sections, ls)):
+                    if len(tmp_list) <= idx:
+                        tmp_list.append([])
+                        tmp_lengths.append([])
+                    tmp_list[idx].append(s)
+                    tmp_lengths[idx].append(l)
+            obs_list = tmp_list
+            lengths = tmp_lengths
+
+            t = 0
+            for a,b in zip(obs_list, lengths):
+                for c, d in zip(a,b):
+                    print(c.shape, d)
+                    t += d
+                print('-----')
+            print(t)
+
+            # Create list of packed padded sequences
+            obs = []
+            for layer, length in zip(obs_list, lengths):
+                padded = to.nn.utils.rnn.pad_sequence(layer)
+                packed = to.nn.utils.rnn.pack_padded_sequence(padded, lengths=length, enforce_sorted=False)
+                obs.append(packed)
 
         with to.no_grad():
             if self.policy.is_recurrent:
-                mean, _ = self.policy.rnn_layers(obs)   
-                mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
-                mean = to.cat([mean[:l, i] for i, l in enumerate(lens)], 0)
+                hidden = to.zeros((2, self.policy.num_recurrent_layers, len(obs_list[0]), self.policy._hidden_size))
+                means = [[] for o in obs]
+                for o in obs:
+                    mean, hidden = self.policy.rnn_layers(o, hidden)
+                    mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
+                    for i, m in enumerate([mean[:l, i] for i, l in enumerate(lens)]):
+                        means[i].append(m)
+                # Nested list to flat list
+                tmp_means = []
+                for mean_list in means:
+                    for m in mean_list:
+                        tmp_means.append(m)
+                mean = to.cat(tmp_means, 0)
 
                 mean = self.policy.output_layer(mean)
                 if self.policy.output_nonlin is not None:
@@ -257,9 +310,19 @@ class PPOGAE(Algorithm):
 
             # Policy
             if self.policy.is_recurrent:
-                mean, _ = self.policy.rnn_layers(obs)   
-                mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
-                mean = to.cat([mean[:l, i] for i, l in enumerate(lens)], 0)
+                hidden = to.zeros((2, self.policy.num_recurrent_layers, len(obs_list[0]), self.policy._hidden_size))
+                means = [[] for o in obs]
+                for o in obs:
+                    mean, hidden = self.policy.rnn_layers(o, hidden)
+                    mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
+                    for i, m in enumerate([mean[:l, i] for i, l in enumerate(lens)]):
+                        means[i].append(m)
+                # Nested list to flat list
+                tmp_means = []
+                for mean_list in means:
+                    for m in mean_list:
+                        tmp_means.append(m)
+                mean = to.cat(tmp_means, 0)
 
                 mean = self.policy.output_layer(mean)
                 if self.policy.output_nonlin is not None:
@@ -270,13 +333,23 @@ class PPOGAE(Algorithm):
 
             # Critic
             if self.critic.is_recurrent:
-                val, _ = self.critic.rnn_layers(obs)   
-                val, lens = to.nn.utils.rnn.pad_packed_sequence(val)
-                val = to.cat([val[:l, i] for i, l in enumerate(lens)], 0)
+                hidden = to.zeros((2, self.policy.num_recurrent_layers, len(obs_list[0]), self.policy._hidden_size))
+                vals = [[] for o in obs]
+                for o in obs:
+                    val, hidden = self.policy.rnn_layers(o, hidden)
+                    val, lens = to.nn.utils.rnn.pad_packed_sequence(val)
+                    for i, m in enumerate([val[:l, i] for i, l in enumerate(lens)]):
+                        vals[i].append(m)
+                # Nested list to flat list
+                tmp_vals = []
+                for val_list in vals:
+                    for m in val_list:
+                        tmp_vals.append(m)
+                val = to.cat(tmp_vals, 0)
 
-                val = self.critic.output_layer(val)
-                if self.critic.output_nonlin is not None:
-                    val = self.critic.output_nonlin(val)
+                val = self.policy.output_layer(val)
+                if self.policy.output_nonlin is not None:
+                    val = self.policy.output_nonlin(val)
             else:
                 val = self.critic(obs)
             val = val.reshape(-1)

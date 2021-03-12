@@ -113,6 +113,7 @@ class Envs:
         """
         data_tensors = to_tensors(self.buf.get_data(), device)
         data_tensors.append(self.buf.sections)
+        data_tensors.append(self.buf.dones)
         return data_tensors
 
 
