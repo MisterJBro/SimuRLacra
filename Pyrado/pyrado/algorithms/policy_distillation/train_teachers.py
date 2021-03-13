@@ -89,7 +89,7 @@ def train_teacher(idx, env, args):
     pyrado.set_seed(args.seed, verbose=True)
 
     # Policy
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=0.75)
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=0.75, use_cuda = True)
     policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
@@ -98,7 +98,7 @@ def train_teacher(idx, env, args):
             p /= 100
 
     # Critic
-    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
+    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp, use_cuda = True)
     critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
