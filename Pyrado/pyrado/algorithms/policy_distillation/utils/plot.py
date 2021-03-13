@@ -107,6 +107,7 @@ def plot_performance(sums, names, goalReward=7000, path='', showPlot=True):
         plt.savefig(f'{path}plot.pdf')
     if showPlot:
         plt.show()
+
     
 def load_distillation_performance(path):
     sum_files = []
@@ -122,20 +123,19 @@ def load_distillation_performance(path):
     names = [ np.load(f'{path}/{f}') for f in sorted(name_files) ]
     return sums, names, sorted(name_files)
 
+
 def plot_distillation_performance(env_name, timestamp, goalReward=7000, showPlot=True):
     path = f'{pyrado.TEMP_DIR}/../runs/distillation/{env_name}/{timestamp}/eval/'
     sums, names, _ = load_distillation_performance(path)
     plot_performance(sums, names, goalReward, path)
     #cheat(goalReward, path)
 
+
 def plot_pack_performance(env_name, teacher_count, goalReward=1500*0.7):
-    packlist = [[32],["1500_250_0"]]#ask_for_packlist()
+    packlist = ask_for_packlist()
     _, _, _, _, _, _, sums, names = load_packed_teachers(env_name, packlist, teacher_count)
+    plot_performance(np.array(sums), np.array(names), goalReward, f'{pyrado.TEMP_DIR}/packs/{env_name}/{env_name}_{packlist[0][0]}_{packlist[1][0]}')   #path
 
-    for s in sums:
-        print(np.shape(s))
-
-    plot_performance(np.array(sums), np.array(names), goalReward)   #path
 
 def test_files(env_name, timestamp):
     path = f'{pyrado.TEMP_DIR}/../runs/distillation/{env_name}/{timestamp}/eval/'
@@ -162,5 +162,5 @@ if __name__ == "__main__":
     #plot_distillation_performance('qcp-su', 'teacher', goalReward=1500*0.7) 
 
     #
-    plot_pack_performance('qq-su', 32)  #32 1500_250_0
-    #plot_pack_performance('qcp-su', 32)  #32 1500_250_0
+    plot_pack_performance('qq-su', 64)  #32 1500_250_0
+    plot_pack_performance('qcp-su', 64)  #32 1500_250_0

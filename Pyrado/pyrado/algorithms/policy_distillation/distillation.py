@@ -34,6 +34,7 @@ parser = argparse.ArgumentParser()
 # Environment
 parser.add_argument('--frequency', type=int, default=250)
 parser.add_argument('--max_steps', type=int, default=1500)
+parser.add_argument('--max_eval_steps', type=int, default=1500)
 parser.add_argument('--teacher_count', type=int, default=8)
 parser.add_argument('--num_epochs', type=int, default=500)
 parser.add_argument('--num_iters', type=int, default=10)
@@ -170,11 +171,11 @@ if __name__ == "__main__":
 
     # Check student performance:
     iters = 100
-    check_performance(env=env_real, policy=expl_strat, name='student_after', n=iters, path=temp_path, verbose=False)
+    check_performance(env=env_real, policy=expl_strat, name='student_after', n=iters, path=temp_path, verbose=False, max_eval_steps=args.max_eval_steps)
 
     processes = 4
     a_pool = multiprocessing.Pool(processes=processes)
-    su = a_pool.starmap_async(check_performance, [(env, deepcopy(expl_strat), f'student_on_teacher_env_{idx}', iters, temp_path) for idx, env in enumerate(teacher_envs)]).get()
+    su = a_pool.starmap_async(check_performance, [(env, deepcopy(expl_strat), f'student_on_teacher_env_{idx}', iters, temp_path, False, args.max_eval_steps) for idx, env in enumerate(teacher_envs)]).get()
     a_pool.close()
     a_pool.join()
 
@@ -184,9 +185,9 @@ if __name__ == "__main__":
         env.close()
 
     random_env_count = 8
-    check_performance_on_random_envs(expl_strat, env_real, random_env_count, temp_path, iters)
+    check_performance_on_random_envs(expl_strat, env_real, random_env_count, temp_path, iters, args.max_eval_steps)
 
-    plot_distillation_performance(env_name, timestamp, goalReward=args.max_steps*.7, showPlot=True)
+    plot_distillation_performance(env_name, timestamp, goalReward=args.max_eval_steps*.7, showPlot=True)
 
     env_real.close()
     writer.flush()

@@ -6,7 +6,9 @@ from pyrado.policies.special.environment_specific import QQubeSwingUpAndBalanceC
 import torch as to
 import multiprocessing as mp
 from multiprocessing import freeze_support
+from pyrado.utils.saving_loading import save
 import os
+
 import pyrado
 from pyrado.sampling.envs import Envs
 from pyrado.algorithms.step_based.ppo_gae import PPOGAE
@@ -85,7 +87,7 @@ def check_net_performance(env, nets, names, max_len=8000, reps=1000, path=''):
     return su
 
 
-def check_performance(env, policy, name, n=1000, path='', verbose=True):
+def check_performance(env, policy, name, n=1000, path='', verbose=True, max_steps=None):
     print('Started checking performance.')
     start=datetime.now()
     su = []
@@ -97,6 +99,7 @@ def check_performance(env, policy, name, n=1000, path='', verbose=True):
         ro = rollout(
             env,
             policy,
+            max_steps=max_steps,
             render_mode=RenderMode(text=False, video=False),
             eval=True,
             reset_kwargs=dict(domain_param=param, init_state=state),
@@ -112,32 +115,37 @@ def check_performance(env, policy, name, n=1000, path='', verbose=True):
     save_performance(start, sums, np.array([name]), env.name, path)
     return sums
 
-"""
-def check_performance(env, policy, name:str, n:int=1000, path=''):
+
+def check_performance_raw(env, policy, name, n=1000, path='', verbose=True, max_steps=None):
     print('Started checking performance.')
     start=datetime.now()
-    a_pool = multiprocessing.Pool()
-    su = a_pool.starmap(rollout_wrapper, [(deepcopy(env), deepcopy(policy), n, i) for i in range(n)])
+    su = []
+    ros = []
+    # Test the policy in the environment
+    done, param, state = False, None, None
+    for i in range(n):
+        if verbose:
+            print('rollout', i, '/', n-1)
+        ro = rollout(
+            env,
+            policy,
+            max_steps=max_steps,
+            render_mode=RenderMode(text=False, video=False),
+            eval=True,
+            reset_kwargs=dict(domain_param=param, init_state=state),
+        )
+        # print_domain_params(env.domain_param)
+        su.append(ro.undiscounted_return())
+        ros.append(ro)
+        if verbose:
+            print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
+        done, param, state = False, None, None #done, state, param = after_rollout_query(env, policy, ro)
     sums = np.array(su)
     print('Endsumme (' + name + ' from', n, 'reps ): MEAN =', np.mean(sums), 'STD =', np.std(sums),
           'MIN =', np.min(sums), 'MAX =', np.max(sums), 'MEDIAN =', np.median(sums))
     save_performance(start, sums, np.array([name]), env.name, path)
-    return np.mean(sums)-np.std(sums)
+    return sums, ros
 
-def rollout_wrapper(env, policy, n, i):
-    param, state = None, None 
-    print('rollout', i, '/', n-1)
-    ro = rollout(
-        env,
-        policy,
-        render_mode=RenderMode(text=False, video=False),
-        eval=True,
-        reset_kwargs=dict(domain_param=param, init_state=state),
-    )
-    env.close()
-    print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
-    return ro.undiscounted_return()
-"""
 
 def save_performance(start, sums, names, env_name='', path=''):
     env_str = f'{env_name}_{names[0]}' if env_name!='' else ''
@@ -153,13 +161,16 @@ def save_performance(start, sums, names, env_name='', path=''):
         np.save( os.path.join(eval_path,f'names_{env_str,start.strftime("%Y-%m-%d_%H:%M:%S")}'), names)
 
 
-def check_pack_performance(teacher_envs, teacher_expl_strat, ex_dirs, reps):
+def check_pack_performance(teacher_envs, teacher_expl_strat, ex_dirs, reps, max_steps):
     names=[ f'teacher {t}' for t in range(len(teacher_expl_strat)) ]
     a_pool = multiprocessing.Pool(processes=4)
-    su = a_pool.starmap_async(check_performance, [(teacher_envs[idx], teacher_expl_strat[idx], names[idx], reps, ex_dirs[idx]) for idx in range(len(teacher_expl_strat))]).get()
+    su = a_pool.starmap_async(check_performance_raw, [(teacher_envs[idx], teacher_expl_strat[idx], names[idx], reps, ex_dirs[idx], max_steps) for idx in range(len(teacher_expl_strat))]).get()
     a_pool.close()
     a_pool.join()
-    return su, names
+    print('Finished evaluating all teachers!')
+    sums = su[0]
+    rollouts = su[1]
+    return sums, names, rollouts 
 
 
 def check_old_teacher_performance(env_name:str, teacher_count:int=8, frequency:int=250, max_steps:int=600, reps:int=1000, packs:bool=None):
@@ -191,12 +202,14 @@ def check_old_teacher_performance(env_name:str, teacher_count:int=8, frequency:i
     env_sim.close
 
 
-def check_performance_on_random_envs(policy, env, count:int, ex_dir, iters):
+def check_performance_on_random_envs(policy, env, count:int, ex_dir, iters, max_eval_steps=None):
     from pyrado.algorithms.policy_distillation.train_teachers import get_random_envs
     test_envs = get_random_envs(env_count = count, env = env)
 
+    save([e.domain_param() for e in test_envs], "random_env_params", "pkl", ex_dir, {"suffix":datetime.now().strftime("%Y-%m-%d_%H:%M:%S")})
+
     a_pool = multiprocessing.Pool(processes=4)
-    su = a_pool.starmap_async(check_performance, [(env, deepcopy(policy), f'student_on_random_env_{idx}', iters, ex_dir) for idx, env in enumerate(test_envs)]).get()
+    su = a_pool.starmap_async(check_performance, [(env, deepcopy(policy), f'student_on_random_env_{idx}', iters, ex_dir, max_eval_steps) for idx, env in enumerate(test_envs)]).get()
     a_pool.close()
     a_pool.join()
 
