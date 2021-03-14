@@ -41,7 +41,7 @@ from pyrado.spaces.compound import CompoundSpace
 from pyrado.tasks.base import Task
 from pyrado.tasks.final_reward import FinalRewTask, FinalRewMode
 from pyrado.tasks.desired_state import RadiallySymmDesStateTask
-from pyrado.tasks.reward_functions import UnderActuatedSwingUpRewFcn, QuadrErrRewFcn
+from pyrado.tasks.reward_functions import UnderActuatedSwingUpRewFcn, QuadrErrRewFcn, QCartPoleSwingUpRewFcn
 from pyrado.utils.input_output import print_cbt, completion_context
 
 
@@ -290,11 +290,10 @@ class QCartPoleSwingUpReal(QCartPoleReal):
     def _create_task(self, task_args: dict) -> Task:
         # Define the task including the reward function
         state_des = task_args.get("state_des", np.array([0.0, np.pi, 0.0, 0.0]))
+ 
+        rew_fcn = QCartPoleSwingUpRewFcn(factor= 0.9, max_dist = 0.40, max_act = 8.0, scales = [np.pi, 0.4])
 
-        return FinalRewTask(
-            RadiallySymmDesStateTask(self.spec, state_des, UnderActuatedSwingUpRewFcn(), idcs=[1]),
-            mode=FinalRewMode(always_negative=True),
-        )
+        return RadiallySymmDesStateTask(self.spec, state_des, rew_fcn, idcs=[1])
 
     def reset(self, *args, **kwargs):
         # Reset socket and task

@@ -57,11 +57,11 @@ def load_teachers(teacher_count:int, env_name:str, packs:bool=False):
                 if t.is_recurrent:
                     # Initialize hidden state var
                     hidden[i] = t.init_hidden()
-
-        return teachers, teacher_envs, teacher_expl_strat, teacher_critic, hidden, ex_dirs
     else:
         packlist = ask_for_packlist()
-        return load_packed_teachers(env_name, packlist, teacher_count)
+        teachers, teacher_envs, teacher_expl_strat, teacher_critic, hidden, ex_dirs, _, _ = load_packed_teachers(env_name, packlist, teacher_count)
+    
+    return teachers, teacher_envs, teacher_expl_strat, teacher_critic, hidden, ex_dirs
 
 def load_student(dt:float, env_type:str, folder:str, max_steps:int):
     # Get the experiment's directory to load from
@@ -95,10 +95,16 @@ def load_student(dt:float, env_type:str, folder:str, max_steps:int):
     return student, env_sim, expl_strat, ex_dir
 
 
-def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False):
+def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False, evalReps:int=0):
     pack_path = f'{pyrado.TEMP_DIR}/packs/{env_name}'
 
     teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs = load_teachers(teacher_count, env_name, packs)
+
+    if evalReps>0:
+        from pyrado.algorithms.policy_distillation.utils.eval import check_pack_performance
+        sums, names = check_pack_performance(teacher_envs, teacher_expl_strat, ex_dirs, evalReps)
+    else:
+        sums, names = [], []
 
     pack = {
         "teachers": teachers,
@@ -106,7 +112,10 @@ def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False)
         "teacher_expl_strat": teacher_expl_strat,
         "teacher_critics": teacher_critics,
         "hidden": hidden,
-        "ex_dirs": ex_dirs}
+        "ex_dirs": ex_dirs,
+        "sums": sums, 
+        "names": names
+        }
 
     if not os.path.exists(pack_path):
         os.makedirs(pack_path)
@@ -121,15 +130,17 @@ def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False)
 def load_packed_teachers(env_name:str, packs:list, teacher_count:int):
     teacher_counts = packs[0]
     suffixes = [ f'{p}' for p in packs[1]]
-    all_teachers, all_teacher_envs, all_teacher_expl_strat, all_teacher_critic, all_hidden, all_ex_dirs = [], [], [], [], [], []
+    all_teachers, all_teacher_envs, all_teacher_expl_strat, all_teacher_critic, all_hidden, all_ex_dirs, all_sums, all_names = [], [], [], [], [], [], [], []
     for i in range(len(teacher_counts)):
-        teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs = load_specific_packed_teachers(teacher_counts[i], env_name, suffixes[i])
+        teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, sums, names = load_specific_packed_teachers(teacher_counts[i], env_name, suffixes[i])
         all_teachers += teachers
         all_teacher_envs += teacher_envs
         all_teacher_expl_strat += teacher_expl_strat
         all_teacher_critic += teacher_critics
         all_hidden += hidden
         all_ex_dirs += ex_dirs
+        all_sums += sums
+        all_names += names
     print(f'Loaded {len(all_teachers)} teachers.')
     if teacher_count==None:
         teacher_count = len(all_teachers)
@@ -137,14 +148,19 @@ def load_packed_teachers(env_name:str, packs:list, teacher_count:int):
         print(f'Using only the first {teacher_count} of them.')
     elif len(all_teachers) < teacher_count:
         raise pyrado.ValueErr(given=teacher_count, given_name='teacher_count', l_constraint=len(all_teachers))
-    return all_teachers[:teacher_count], all_teacher_envs[:teacher_count], all_teacher_expl_strat[:teacher_count], all_teacher_critic[:teacher_count], all_hidden[:teacher_count], all_ex_dirs[:teacher_count]
+    return all_teachers[:teacher_count], all_teacher_envs[:teacher_count], all_teacher_expl_strat[:teacher_count], all_teacher_critic[:teacher_count], all_hidden[:teacher_count], all_ex_dirs[:teacher_count], all_sums[:teacher_count], all_names[:teacher_count]
 
 
 def load_specific_packed_teachers(teacher_count:int, env_name:str, suffix:str):
     pack_path = f'{pyrado.TEMP_DIR}/packs/{env_name}'
     pack = load(obj=None, name="teachers", file_ext="pkl", load_dir=pack_path, meta_info={"prefix":teacher_count, "suffix":suffix})
     teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs = pack["teachers"], pack["teacher_envs"], pack["teacher_expl_strat"], pack["teacher_critics"], pack["hidden"], pack["ex_dirs"]
-    return teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs
+    # not every pack has evaluation results:
+    if "sums" in pack and "names" in pack:
+        sums, names = pack["sums"], pack["names"]
+    else:
+        sums, names = [], []
+    return teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, sums, names
 
 
 def ask_for_packlist():
@@ -172,11 +188,12 @@ if __name__ == "__main__":
     # Environment
     parser.add_argument('--teacher_count', type=int, default=4)
     parser.add_argument('--counter', type=int, default=0)
+    parser.add_argument('--evalReps', type=int, default=0)
     parser.add_argument('--env_name', type=str, default='qq-su')
     parser.add_argument('--descr', type=str, default='')
     parser.add_argument('--packs', action='store_true', default=False)
 
     args = parser.parse_args()
 
-    pack_teachers(args.teacher_count, args.env_name, f'{args.descr}{args.counter}', args.packs)
+    pack_teachers(args.teacher_count, args.env_name, f'{args.descr}{args.counter}', args.packs, args.evalReps)
     #load_teachers(args.teacher_count, args.env_name, args.packs)

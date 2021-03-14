@@ -89,7 +89,7 @@ def train_teacher(idx, env, args):
     pyrado.set_seed(args.seed, verbose=True)
 
     # Policy
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=0.75)
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=0.75, use_cuda = True)
     policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
@@ -98,7 +98,7 @@ def train_teacher(idx, env, args):
             p /= 100
 
     # Critic
-    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
+    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp, use_cuda = True)
     critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
@@ -174,14 +174,24 @@ if __name__ == "__main__":
     a_pool.close()
     a_pool.join()
     print('Finished training all teachers!')
-
+    """
     if args.eval_after:
-      # check performance
-      nets = teachers[:]
-      names=[ f'teacher {t}' for t in range(len(teachers)) ]
-      check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
-      print('Finished evaluating all teachers!')
+        # check performance
+        nets = teachers[:]
+        names=[ f'teacher {t}' for t in range(len(teachers)) ]
+        #check_net_performance(env=env_sim, nets=nets, names=names, reps=1000)
 
+
+        a_pool = mp.Pool(processes=4)
+        su = a_pool.starmap_async(check_performance, [(deepcopy(env_sim), policy, names[idx], 1000, ex_dirs[idx]) for idx, policy in enumerate(teacher_expl_strat)]).get()
+        a_pool.close()
+        a_pool.join()
+
+        print(su)
+
+
+      print('Finished evaluating all teachers!')
+    """
     for env in teacher_envs:
         env.close()
 

@@ -110,7 +110,7 @@ def check_performance(env, policy, name, n=1000, path='', verbose=True):
     print('Endsumme (' + name + ' from', n, 'reps ): MEAN =', np.mean(sums), 'STD =', np.std(sums),
           'MIN =', np.min(sums), 'MAX =', np.max(sums), 'MEDIAN =', np.median(sums))
     save_performance(start, sums, np.array([name]), env.name, path)
-    return np.mean(sums)
+    return sums
 
 """
 def check_performance(env, policy, name:str, n:int=1000, path=''):
@@ -143,19 +143,28 @@ def save_performance(start, sums, names, env_name='', path=''):
     env_str = f'{env_name}_{names[0]}' if env_name!='' else ''
 
     if path == '':
-        np.save( f'{pyrado.TEMP_DIR}/eval/sums_{env_str}{start.strftime("%Y-%m-%d_%H:%M:%S")}', sums)
-        np.save( f'{pyrado.TEMP_DIR}/eval/names_{env_str}{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
+        np.save( f'{pyrado.TEMP_DIR}/eval/sums_{env_str}_{start.strftime("%Y-%m-%d_%H:%M:%S")}', sums)
+        np.save( f'{pyrado.TEMP_DIR}/eval/names_{env_str}_{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
     else:
-        eval_path = f'{path}eval/'
+        eval_path = os.path.join(pyrado.TEMP_DIR,path,'eval') #f'{path}eval/'
         if not os.path.exists(eval_path):
             os.makedirs(eval_path)
-        np.save( f'{eval_path}sums_{env_str}{start.strftime("%Y-%m-%d_%H:%M:%S")}', sums)
-        np.save( f'{eval_path}names_{env_str}{start.strftime("%Y-%m-%d_%H:%M:%S")}', names)
+        np.save( os.path.join(eval_path,f'sums_{env_str,start.strftime("%Y-%m-%d_%H:%M:%S")}'), sums)  #f'{eval_path}sums_{env_str}{start.strftime("%Y-%m-%d_%H:%M:%S")}',
+        np.save( os.path.join(eval_path,f'names_{env_str,start.strftime("%Y-%m-%d_%H:%M:%S")}'), names)
+
+
+def check_pack_performance(teacher_envs, teacher_expl_strat, ex_dirs, reps):
+    names=[ f'teacher {t}' for t in range(len(teacher_expl_strat)) ]
+    a_pool = multiprocessing.Pool(processes=4)
+    su = a_pool.starmap_async(check_performance, [(teacher_envs[idx], teacher_expl_strat[idx], names[idx], reps, ex_dirs[idx]) for idx in range(len(teacher_expl_strat))]).get()
+    a_pool.close()
+    a_pool.join()
+    return su, names
 
 
 def check_old_teacher_performance(env_name:str, teacher_count:int=8, frequency:int=250, max_steps:int=600, reps:int=1000, packs:bool=None):
     # Teachers
-    teachers, _, teacher_expl_strat, hidden, ex_dirs = load_teachers(teacher_count, env_name, packs)
+    teachers, _, teacher_expl_strat, _, _, ex_dirs = load_teachers(teacher_count, env_name, packs)
 
     env_hparams = dict(dt=1 / frequency, max_steps=max_steps)
     # Environment
@@ -179,7 +188,6 @@ def check_old_teacher_performance(env_name:str, teacher_count:int=8, frequency:i
     a_pool.close()
     a_pool.join()
 
-    #check_net_performance(env=env_sim, nets=teachers[:], names=names, reps=reps)
     env_sim.close
 
 
