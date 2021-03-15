@@ -165,7 +165,7 @@ def check_pack_performance(envs, policies, ex_dirs, reps, max_steps):
     print("Started evaluating all teachers.")
     names=[ f'teacher {t}' for t in range(len(policies)) ]
     a_pool = mp.pool.ThreadPool(processes=mp.cpu_count())
-    su = a_pool.starmap_async(check_performance_raw, [(envs[idx], policies[idx], names[idx], reps, ex_dirs[idx], max_steps) for idx in range(len(policies))]).get()
+    su = a_pool.starmap_async(check_performance_raw, [(envs[idx], policies[idx], names[idx], reps, ex_dirs[idx], True, max_steps) for idx in range(len(policies))]).get()
     a_pool.close()
     a_pool.join()
     print('Finished evaluating all teachers!')
