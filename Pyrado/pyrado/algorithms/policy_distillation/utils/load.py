@@ -59,7 +59,7 @@ def load_teachers(teacher_count:int, env_name:str, packs:bool=False):
                     hidden[i] = t.init_hidden()
     else:
         packlist = ask_for_packlist()
-        teachers, teacher_envs, teacher_expl_strat, teacher_critic, hidden, ex_dirs, _, _ = load_packed_teachers(env_name, packlist, teacher_count)
+        teachers, teacher_envs, teacher_expl_strat, teacher_critic, hidden, ex_dirs, _, _, _ = load_packed_teachers(env_name, packlist, teacher_count)
     
     return teachers, teacher_envs, teacher_expl_strat, teacher_critic, hidden, ex_dirs
 
@@ -235,7 +235,7 @@ if __name__ == "__main__":
     parser.add_argument('--teacher_count', type=int, default=4)
     parser.add_argument('--counter', type=int, default=0)
     parser.add_argument('--evalReps', type=int, default=0)
-    parser.add_argument('--max_eval_steps', type=int, default=100)
+    parser.add_argument('--max_eval_steps', type=int, default=1500)
     parser.add_argument('--env_name', type=str, default='qq-su')
     parser.add_argument('--descr', type=str, default='')
     parser.add_argument('--packs', action='store_true', default=False)
