@@ -134,17 +134,17 @@ class PPOGAE(Algorithm):
         if num_env_ind == 0:
             if self.policy.is_recurrent:
                 self.hidden_policy = to.zeros(self.env_num, self.policy.hidden_size,
-                                device=self.device)
+                                device=self.device).contiguous()
             if self.critic.is_recurrent:
                 self.hidden_critic = to.zeros(self.env_num, self.critic.hidden_size,
-                                device=self.device)
+                                device=self.device).contiguous()
         else:
             if self.policy.is_recurrent:
                 self.hidden_policy[env_indices] = to.zeros(num_env_ind, self.policy.hidden_size,
-                                device=self.device)
+                                device=self.device).contiguous()
             if self.critic.is_recurrent:
                 self.hidden_critic[env_indices] = to.zeros(num_env_ind, self.critic.hidden_size,
-                                device=self.device)
+                                device=self.device).contiguous()
 
     @property
     def expl_strat(self) -> NormalActNoiseExplStrat:
@@ -204,12 +204,12 @@ class PPOGAE(Algorithm):
             obss = to.as_tensor(obss).to(self.device)
             with to.no_grad():
                 if self.expl_strat.is_recurrent:
-                    acts, self.hidden_policy = self.expl_strat(obss, self.hidden_policy)
+                    acts, self.hidden_policy = self.expl_strat(obss, self.hidden_policy.contiguous())
                 else:
                     acts = self.expl_strat(obss)
                 acts = acts.cpu().numpy()
                 if self.critic.is_recurrent:
-                    vals, self.hidden_critic = self.critic(obss, self.hidden_critic)
+                    vals, self.hidden_critic = self.critic(obss, self.hidden_critic.contiguous())
                 else:
                     vals = self.critic(obss)
                 vals = vals.reshape(-1).cpu().numpy()
