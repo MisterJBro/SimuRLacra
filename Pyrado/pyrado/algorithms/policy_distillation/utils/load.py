@@ -113,7 +113,7 @@ def load_teachers_from_dir(env_name, ex_dirs):
     teacher_envs = []
     teacher_expl_strat = []
     teacher_critic = []
-    for ex_dir in range(ex_dirs):
+    for ex_dir in ex_dirs:
         # Load the policy (trained in simulation) and the environment (for constructing the real-world counterpart)
         env_teacher, policy, extra = load_experiment(ex_dir)
         if (env_teacher.name != env_name):
@@ -143,7 +143,8 @@ def load_teachers_from_dir(env_name, ex_dirs):
 def pack_loaded_teachers(teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, evalReps, suffix, max_eval_steps):
     if evalReps>0:
         from pyrado.algorithms.policy_distillation.utils.eval import check_pack_performance
-        sums, names, rollouts = check_pack_performance(teacher_envs, teacher_expl_strat, ex_dirs, evalReps, max_eval_steps)
+        sums, names, rollouts = check_pack_performance(teacher_envs, teachers, ex_dirs, evalReps, max_eval_steps)
+        suffix+="_eval"
     else:
         sums, names, rollouts = [], [], []
 

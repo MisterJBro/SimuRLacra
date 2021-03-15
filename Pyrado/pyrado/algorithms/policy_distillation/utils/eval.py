@@ -161,10 +161,11 @@ def save_performance(start, sums, names, env_name='', path=''):
         np.save( os.path.join(eval_path,f'names_{env_str,start.strftime("%Y-%m-%d_%H:%M:%S")}'), names)
 
 
-def check_pack_performance(teacher_envs, teacher_expl_strat, ex_dirs, reps, max_steps):
-    names=[ f'teacher {t}' for t in range(len(teacher_expl_strat)) ]
-    a_pool = multiprocessing.Pool(processes=4)
-    su = a_pool.starmap_async(check_performance_raw, [(teacher_envs[idx], teacher_expl_strat[idx], names[idx], reps, ex_dirs[idx], max_steps) for idx in range(len(teacher_expl_strat))]).get()
+def check_pack_performance(envs, policies, ex_dirs, reps, max_steps):
+    print("Started evaluating all teachers.")
+    names=[ f'teacher {t}' for t in range(len(policies)) ]
+    a_pool = mp.pool.ThreadPool(processes=mp.cpu_count())
+    su = a_pool.starmap_async(check_performance_raw, [(envs[idx], policies[idx], names[idx], reps, ex_dirs[idx], max_steps) for idx in range(len(policies))]).get()
     a_pool.close()
     a_pool.join()
     print('Finished evaluating all teachers!')
@@ -206,7 +207,7 @@ def check_performance_on_random_envs(policy, env, count:int, ex_dir, iters, max_
     from pyrado.algorithms.policy_distillation.train_teachers import get_random_envs
     test_envs = get_random_envs(env_count = count, env = env)
 
-    save([e.domain_param() for e in test_envs], "random_env_params", "pkl", ex_dir, {"suffix":datetime.now().strftime("%Y-%m-%d_%H:%M:%S")})
+    save([e.domain_param for e in test_envs], "random_env_params", "pkl", ex_dir, {"suffix":datetime.now().strftime("%Y-%m-%d_%H:%M:%S")})
 
     a_pool = multiprocessing.Pool(processes=4)
     su = a_pool.starmap_async(check_performance, [(env, deepcopy(policy), f'student_on_random_env_{idx}', iters, ex_dir, max_eval_steps) for idx, env in enumerate(test_envs)]).get()
@@ -214,7 +215,7 @@ def check_performance_on_random_envs(policy, env, count:int, ex_dir, iters, max_
     a_pool.join()
 
     # Check student performance on teacher envs:
-    for idx, env in enumerate(test_envs):
+    for env in test_envs:
         env.close()
     
     return su

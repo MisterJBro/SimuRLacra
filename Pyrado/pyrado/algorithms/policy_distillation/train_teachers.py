@@ -1,10 +1,8 @@
 import torch as to
 import argparse
-
 from copy import deepcopy
 import pyrado
-from torch.optim import lr_scheduler
-from pyrado.environments.pysim.quanser_cartpole import QCartPoleStabSim, QCartPoleSwingUpSim
+from pyrado.environments.pysim.quanser_cartpole import QCartPoleSwingUpSim
 from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 #from pyrado.environment_wrappers.observation_normalization import ObsNormWrapper
 from pyrado.domain_randomization.domain_randomizer import DomainRandomizer
@@ -17,11 +15,7 @@ from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.algorithms.policy_distillation.utils.eval import check_net_performance, check_performance
 from pyrado.algorithms.policy_distillation.utils.load import load_teachers_from_dir, pack_loaded_teachers
 
-from pyrado.algorithms.step_based.gae import GAE
-from pyrado.algorithms.step_based.ppo import PPO
-
 from pyrado.algorithms.step_based.ppo_gae import PPOGAE
-from pyrado.utils.argparser import get_argparser
 from pyrado.logger.experiment import setup_experiment, save_dicts_to_yaml
 from pyrado.policies.special.environment_specific import QCartPoleSwingUpAndBalanceCtrl, QQubeSwingUpAndBalanceCtrl
 from pyrado.policies.feed_forward.fnn import FNNPolicy
@@ -88,9 +82,10 @@ def train_teacher(idx, env, args):
 
     # Set seed if desired
     pyrado.set_seed(args.seed, verbose=True)
-
+    use_cuda = args.device == 'cuda'
+    
     # Policy
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=0.75, use_cuda = True)
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=0.75, use_cuda = use_cuda)
     policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
@@ -99,7 +94,7 @@ def train_teacher(idx, env, args):
             p /= 100
 
     # Critic
-    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp, use_cuda = True)
+    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp, use_cuda = use_cuda)
     critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
@@ -110,7 +105,7 @@ def train_teacher(idx, env, args):
         gamma=0.99,
         lam=0.97,
         env_num=30,
-        cpu_num=min(9, int(mp.cpu_count()/4)),
+        cpu_num=min(9, int(mp.cpu_count()/8)),
         epoch_num=40,
         device=args.device,
         max_kl=0.05,
@@ -171,7 +166,7 @@ if __name__ == "__main__":
 
     teacher_envs = get_random_envs(env_count = args.teacher_count, env = env_sim, simplerSim = args.simplerSim)
 
-    a_pool = mp.pool.ThreadPool(processes=4)
+    a_pool = mp.pool.ThreadPool(processes=8)
     ex_dirs = a_pool.starmap_async(train_teacher, [(idx, env, args) for idx, env in enumerate(teacher_envs)]).get()
     a_pool.close()
     a_pool.join()
@@ -181,9 +176,8 @@ if __name__ == "__main__":
 
     suffix = f'{args.max_steps}_{args.frequency}' if args.pack_suffix is None else args.pack_suffix
     max_eval_steps = args.max_steps if args.max_eval_steps is None else args.max_eval_steps
-    pack_loaded_teachers(teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, args.evalReps, suffix, max_eval_steps)
+    pack_loaded_teachers(teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, args.eval_reps, suffix, max_eval_steps)
     print('Finished packing teachers.')
 
     for env in teacher_envs:
         env.close()
-

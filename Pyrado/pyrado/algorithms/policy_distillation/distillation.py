@@ -40,6 +40,9 @@ parser.add_argument('--num_epochs', type=int, default=500)
 parser.add_argument('--num_iters', type=int, default=10)
 parser.add_argument('--env_name', type=str, default='qq-su')
 parser.add_argument('--packs', action='store_true', default=False)
+parser.add_argument('--eval_reps', type=int, default=100)
+parser.add_argument('--eval_policy', type=str, default='student')
+
 
 def on_policy_distill(args, env, student, expl_strat, optimizer, teachers, teacher_expl_strat, teacher_weights, writer, teacher_envs):
     # Criterion
@@ -170,22 +173,22 @@ if __name__ == "__main__":
     on_policy_distill(args, env_real, student, expl_strat, optimizer, teachers, teacher_expl_strat, teacher_weights, writer, teacher_envs)
 
     # Check student performance:
-    iters = 100
-    check_performance(env=env_real, policy=expl_strat, name='student_after', n=iters, path=temp_path, verbose=False, max_eval_steps=args.max_eval_steps)
+    iters = args.eval_reps
+    policy = student if args.eval_policy=="student" else expl_strat
+    check_performance(env=env_real, policy=policy, name='student_after', n=iters, path=temp_path, verbose=False, max_eval_steps=args.max_eval_steps)
 
     processes = 4
     a_pool = multiprocessing.Pool(processes=processes)
-    su = a_pool.starmap_async(check_performance, [(env, deepcopy(expl_strat), f'student_on_teacher_env_{idx}', iters, temp_path, False, args.max_eval_steps) for idx, env in enumerate(teacher_envs)]).get()
+    su = a_pool.starmap_async(check_performance, [(env, deepcopy(policy), f'student_on_teacher_env_{idx}', iters, temp_path, False, args.max_eval_steps) for idx, env in enumerate(teacher_envs)]).get()
     a_pool.close()
     a_pool.join()
 
     # Check student performance on teacher envs:
     for idx, env in enumerate(teacher_envs):
-        #check_performance(env=env, policy=expl_strat, name=f'student_on_teacher_env_{idx}', n=iters, path=temp_path, verbose=False)
         env.close()
 
     random_env_count = 8
-    check_performance_on_random_envs(expl_strat, env_real, random_env_count, temp_path, iters, args.max_eval_steps)
+    check_performance_on_random_envs(policy, env_real, random_env_count, temp_path, iters, args.max_eval_steps)
 
     plot_distillation_performance(env_name, timestamp, goalReward=args.max_eval_steps*.7, showPlot=True)
 
