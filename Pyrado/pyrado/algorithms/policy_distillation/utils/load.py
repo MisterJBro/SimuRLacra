@@ -59,7 +59,7 @@ def load_teachers(teacher_count:int, env_name:str, packs:bool=False):
                     hidden[i] = t.init_hidden()
     else:
         packlist = ask_for_packlist()
-        teachers, teacher_envs, teacher_expl_strat, teacher_critic, hidden, ex_dirs, _, _ = load_packed_teachers(env_name, packlist, teacher_count)
+        teachers, teacher_envs, teacher_expl_strat, teacher_critic, hidden, ex_dirs, _, _, _ = load_packed_teachers(env_name, packlist, teacher_count)
     
     return teachers, teacher_envs, teacher_expl_strat, teacher_critic, hidden, ex_dirs
 
@@ -95,16 +95,58 @@ def load_student(dt:float, env_type:str, folder:str, max_steps:int):
     return student, env_sim, expl_strat, ex_dir
 
 
-def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False, evalReps:int=0):
-    pack_path = f'{pyrado.TEMP_DIR}/packs/{env_name}'
-
+def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False, evalReps:int=0, max_eval_steps:int=100):
     teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs = load_teachers(teacher_count, env_name, packs)
 
+    pack_loaded_teachers(teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, evalReps, suffix, max_eval_steps)
+
+    for env in teacher_envs:
+        env.close()
+
+    print('Finished packing teachers.')
+
+
+def load_teachers_from_dir(env_name, ex_dirs):
+    # Teachers
+    hidden = []
+    teachers = []
+    teacher_envs = []
+    teacher_expl_strat = []
+    teacher_critic = []
+    for ex_dir in ex_dirs:
+        # Load the policy (trained in simulation) and the environment (for constructing the real-world counterpart)
+        env_teacher, policy, extra = load_experiment(ex_dir)
+        if (env_teacher.name != env_name):
+            raise pyrado.TypeErr(msg="The teacher environment does not match the previous one(s)!")
+        teachers.append(policy)
+        teacher_envs.append(env_teacher)
+        teacher_expl_strat.append(extra["expl_strat"])
+        teacher_critic.append(extra["vfcn"])
+
+    for i, t in enumerate(teachers):
+        if isinstance(t, Policy):
+            # Reset the policy / the exploration strategy
+            t.reset()
+
+            # Set dropout and batch normalization layers to the right mode
+            t.eval()
+
+            # Check for recurrent policy, which requires special handling
+            if t.is_recurrent:
+                # Initialize hidden state var
+                hidden[i] = t.init_hidden()
+
+    return teachers, teacher_envs, teacher_expl_strat, teacher_critic, hidden
+
+    
+
+def pack_loaded_teachers(teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, evalReps, suffix, max_eval_steps):
     if evalReps>0:
         from pyrado.algorithms.policy_distillation.utils.eval import check_pack_performance
-        sums, names = check_pack_performance(teacher_envs, teacher_expl_strat, ex_dirs, evalReps)
+        sums, names, rollouts = check_pack_performance(teacher_envs, teachers, ex_dirs, evalReps, max_eval_steps)
+        suffix+="_eval"
     else:
-        sums, names = [], []
+        sums, names, rollouts = [], [], []
 
     pack = {
         "teachers": teachers,
@@ -114,25 +156,24 @@ def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False,
         "hidden": hidden,
         "ex_dirs": ex_dirs,
         "sums": sums, 
-        "names": names
+        "names": names,
+        "rollouts": rollouts
         }
 
+    env_name = teacher_envs[0].name
+    teacher_count = len(teachers)
+    pack_path = f'{pyrado.TEMP_DIR}/packs/{env_name}'
     if not os.path.exists(pack_path):
         os.makedirs(pack_path)
     save(pack, "teachers", "pkl", pack_path, {"prefix":teacher_count, "suffix":suffix})
-
-    for env in teacher_envs:
-        env.close()
-
-    print('Finished packing teachers.')
 
 
 def load_packed_teachers(env_name:str, packs:list, teacher_count:int):
     teacher_counts = packs[0]
     suffixes = [ f'{p}' for p in packs[1]]
-    all_teachers, all_teacher_envs, all_teacher_expl_strat, all_teacher_critic, all_hidden, all_ex_dirs, all_sums, all_names = [], [], [], [], [], [], [], []
+    all_teachers, all_teacher_envs, all_teacher_expl_strat, all_teacher_critic, all_hidden, all_ex_dirs, all_sums, all_names, all_rollouts = [], [], [], [], [], [], [], [], []
     for i in range(len(teacher_counts)):
-        teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, sums, names = load_specific_packed_teachers(teacher_counts[i], env_name, suffixes[i])
+        teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, sums, names, rollouts = load_specific_packed_teachers(teacher_counts[i], env_name, suffixes[i])
         all_teachers += teachers
         all_teacher_envs += teacher_envs
         all_teacher_expl_strat += teacher_expl_strat
@@ -141,6 +182,7 @@ def load_packed_teachers(env_name:str, packs:list, teacher_count:int):
         all_ex_dirs += ex_dirs
         all_sums += sums
         all_names += names
+        all_rollouts += rollouts
     print(f'Loaded {len(all_teachers)} teachers.')
     if teacher_count==None:
         teacher_count = len(all_teachers)
@@ -148,7 +190,7 @@ def load_packed_teachers(env_name:str, packs:list, teacher_count:int):
         print(f'Using only the first {teacher_count} of them.')
     elif len(all_teachers) < teacher_count:
         raise pyrado.ValueErr(given=teacher_count, given_name='teacher_count', l_constraint=len(all_teachers))
-    return all_teachers[:teacher_count], all_teacher_envs[:teacher_count], all_teacher_expl_strat[:teacher_count], all_teacher_critic[:teacher_count], all_hidden[:teacher_count], all_ex_dirs[:teacher_count], all_sums[:teacher_count], all_names[:teacher_count]
+    return all_teachers[:teacher_count], all_teacher_envs[:teacher_count], all_teacher_expl_strat[:teacher_count], all_teacher_critic[:teacher_count], all_hidden[:teacher_count], all_ex_dirs[:teacher_count], all_sums[:teacher_count], all_names[:teacher_count], all_rollouts[:teacher_count]
 
 
 def load_specific_packed_teachers(teacher_count:int, env_name:str, suffix:str):
@@ -160,7 +202,11 @@ def load_specific_packed_teachers(teacher_count:int, env_name:str, suffix:str):
         sums, names = pack["sums"], pack["names"]
     else:
         sums, names = [], []
-    return teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, sums, names
+    if "rollouts" in pack:
+        rollouts = pack["rollouts"]
+    else:
+        rollouts = []
+    return teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, sums, names, rollouts
 
 
 def ask_for_packlist():
@@ -189,11 +235,12 @@ if __name__ == "__main__":
     parser.add_argument('--teacher_count', type=int, default=4)
     parser.add_argument('--counter', type=int, default=0)
     parser.add_argument('--evalReps', type=int, default=0)
+    parser.add_argument('--max_eval_steps', type=int, default=1500)
     parser.add_argument('--env_name', type=str, default='qq-su')
     parser.add_argument('--descr', type=str, default='')
     parser.add_argument('--packs', action='store_true', default=False)
 
     args = parser.parse_args()
 
-    pack_teachers(args.teacher_count, args.env_name, f'{args.descr}{args.counter}', args.packs, args.evalReps)
+    pack_teachers(args.teacher_count, args.env_name, f'{args.descr}{args.counter}', args.packs, args.evalReps, args.max_eval_steps)
     #load_teachers(args.teacher_count, args.env_name, args.packs)

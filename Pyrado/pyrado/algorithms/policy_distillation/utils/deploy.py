@@ -33,6 +33,7 @@ import torch as to
 import pyrado
 import argparse
 import os
+from datetime import datetime
 
 from pyrado.environments.quanser.quanser_ball_balancer import QBallBalancerReal
 from pyrado.environments.quanser.quanser_cartpole import QCartPoleReal
@@ -51,7 +52,6 @@ from pyrado.utils.input_output import print_cbt
 from pyrado.utils.argparser import get_argparser
 from pyrado.algorithms.policy_distillation.utils.load import load_student
 from pyrado.utils.saving_loading import save
-from datetime import datetime
 
 
 # Parameters
