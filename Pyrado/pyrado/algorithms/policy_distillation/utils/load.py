@@ -95,10 +95,10 @@ def load_student(dt:float, env_type:str, folder:str, max_steps:int):
     return student, env_sim, expl_strat, ex_dir
 
 
-def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False, evalReps:int=0):
+def pack_teachers(teacher_count:int, env_name:str, suffix:str, packs:bool=False, evalReps:int=0, max_eval_steps:int=100):
     teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs = load_teachers(teacher_count, env_name, packs)
 
-    pack_loaded_teachers(teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, evalReps, suffix)
+    pack_loaded_teachers(teachers, teacher_envs, teacher_expl_strat, teacher_critics, hidden, ex_dirs, evalReps, suffix, max_eval_steps)
 
     for env in teacher_envs:
         env.close()
@@ -235,11 +235,12 @@ if __name__ == "__main__":
     parser.add_argument('--teacher_count', type=int, default=4)
     parser.add_argument('--counter', type=int, default=0)
     parser.add_argument('--evalReps', type=int, default=0)
+    parser.add_argument('--max_eval_steps', type=int, default=100)
     parser.add_argument('--env_name', type=str, default='qq-su')
     parser.add_argument('--descr', type=str, default='')
     parser.add_argument('--packs', action='store_true', default=False)
 
     args = parser.parse_args()
 
-    pack_teachers(args.teacher_count, args.env_name, f'{args.descr}{args.counter}', args.packs, args.evalReps)
+    pack_teachers(args.teacher_count, args.env_name, f'{args.descr}{args.counter}', args.packs, args.evalReps, args.max_eval_steps)
     #load_teachers(args.teacher_count, args.env_name, args.packs)
