@@ -287,7 +287,7 @@ class LSTMPolicy(RNNPolicyBase):
             # Reshape to hid/cell x nrl x batch x hs
             hd = hidden.view(2, self.num_recurrent_layers, 1, self._hidden_size)
             # Split hidden and cell state
-            return hd[0, ...], hd[1, ...]
+            return hd[0, ...].contiguous(), hd[1, ...].contiguous()
 
         elif len(hidden.shape) == 2:
             assert (
@@ -300,7 +300,7 @@ class LSTMPolicy(RNNPolicyBase):
             # Reshape to hid/cell x nrl x batch x hs
             hd = hidden.view(batch_size, 2, self.num_recurrent_layers, self._hidden_size).permute(1, 2, 0, 3)
             # Split hidden and cell state
-            return hd[0, ...], hd[1, ...]
+            return hd[0, ...].contiguous(), hd[1, ...].contiguous()
 
         else:
             raise pyrado.ShapeErr(
