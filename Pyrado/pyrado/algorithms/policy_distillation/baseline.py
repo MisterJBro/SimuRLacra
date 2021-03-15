@@ -66,9 +66,9 @@ if __name__ == "__main__":
     print(env)
 
     # Policy
-    #policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, output_scale=0.75)
+    #policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
     #policy = FNNPolicy(spec=env.spec, **policy_hparam)
-    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh)
+    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=True)
     policy = LSTMPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     # Critic
     #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
     #critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
-    critic_hparam = dict(hidden_size=64, num_recurrent_layers=1)
+    critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.exp, use_cuda=True)
     critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
