@@ -233,6 +233,19 @@ def load_experiment(
         extra["teacher_critics"] = algo.teacher_critics
         extra["teacher_ex_dirs"] = algo.teacher_ex_dirs
 
+    elif algo.name == "ppo_gae":
+        # Environment
+        env = pyrado.load(None, "env", "pkl", ex_dir, None)
+        # Policy
+        policy = pyrado.load(algo.policy, f"{args.policy_name}", "pt", ex_dir, None)
+        print_cbt(f"Loaded {osp.join(ex_dir, f'{args.policy_name}.pt')}", "g")
+        # Extra (value function, exploration strategy)
+        extra["vfcn"] = pyrado.load(algo.critic, f"{args.vfcn_name}", "pt", ex_dir, None)
+        print_cbt(f"Loaded {osp.join(ex_dir, f'{args.vfcn_name}.pt')}", "g")
+        extra["expl_strat"] = pyrado.load(algo.expl_strat, f"expl_strat", "pt", ex_dir, None)
+        print_cbt(f"Loaded {osp.join(ex_dir, f'expl_strat.pt')}", "g")
+        extra["highest_avg_ret"] = algo._highest_avg_ret
+
     else:
         raise pyrado.TypeErr(msg="No matching algorithm name found during loading the experiment!")
 
