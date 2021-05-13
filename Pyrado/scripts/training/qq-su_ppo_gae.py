@@ -34,38 +34,32 @@ if __name__ == "__main__":
     pyrado.set_seed(args.seed, verbose=True) 
  
     # Environment
-    env_hparams = dict(dt=1 / 250.0, max_steps=1500)
+    env_hparams = dict(dt=1 / 250.0, max_steps=3000)
     env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
-    print(env)
 
     # Policy
     policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
     policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
-    # Reduce weights of last layer, recommended by paper
-    for p in policy.net.output_layer.parameters():
-        with to.no_grad():
-            p /= 100
-
     # Critic
-    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
+    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
     critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
     algo_hparam = dict(
-        max_iter=200,
+        max_iter=1,
         tb_name="ppo",
-        traj_len=1500,
+        traj_len=3000,
         gamma=0.99,
         lam=0.97,
-        env_num=30,
+        env_num=10,
         cpu_num=min(9,mp.cpu_count()-1),
         epoch_num=40,
         device="cpu",
         max_kl=0.05,
         std_init=1.0,
         clip_ratio=0.1,
-        lr=2e-3,
+        lr=1e-3,
     )
     algo = PPOGAE(ex_dir, env, policy, critic, **algo_hparam)
 
@@ -87,6 +81,5 @@ if __name__ == "__main__":
         ro = rollout(
             env,
             algo.expl_strat,
-            render_mode=RenderMode(text=True, video=True),
-            eval=True,
+            render_mode=RenderMode(text=True, video=True)
         )

@@ -281,7 +281,7 @@ class PPOGAE(Algorithm):
             
             logp = dist.log_prob(act).sum(-1)
             loss_policy, kl = self.loss_fcn(logp, old_logp, adv)
-            loss_policy += self.expl_strat.std.mean() * self.std_loss
+            #loss_policy += self.expl_strat.std.mean() * self.std_loss
 
             # Early stopping if kl divergence too high
             if kl > self.max_kl:
