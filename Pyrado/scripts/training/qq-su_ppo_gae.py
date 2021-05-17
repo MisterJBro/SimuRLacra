@@ -10,6 +10,7 @@ from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.environment_wrappers.observation_normalization import ObsNormWrapper
 from pyrado.environments.pysim.quanser_qube import QQubeSwingUpSim
 from pyrado.utils.data_types import RenderMode
+from pyrado.policies.recurrent.rnn import LSTMPolicy
 from pyrado.policies.feed_back.fnn import FNNPolicy
 from pyrado.logger.experiment import setup_experiment, save_dicts_to_yaml
 from pyrado.sampling.rollout import rollout
@@ -34,20 +35,24 @@ if __name__ == "__main__":
     pyrado.set_seed(args.seed, verbose=True) 
  
     # Environment
-    env_hparams = dict(dt=1 / 250.0, max_steps=3000)
+    env_hparams = dict(dt=1 / 250.0, max_steps=4000)
     env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
 
     # Policy
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
-    policy = FNNPolicy(spec=env.spec, **policy_hparam)
+    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1)
+    #policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+    policy = LSTMPolicy(spec=env.spec, **policy_hparam)
+    #policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Critic
-    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
-    critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+    critic_hparam = dict(hidden_size=64, num_recurrent_layers=1)
+    #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
+    critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+    #critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
     algo_hparam = dict(
-        max_iter=1,
+        max_iter=100,
         tb_name="ppo",
         traj_len=3000,
         gamma=0.99,
