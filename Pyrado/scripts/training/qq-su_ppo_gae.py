@@ -39,10 +39,10 @@ if __name__ == "__main__":
     env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
 
     # Policy
-    #policy_hparam = dict(hidden_size=64, num_recurrent_layers=1)
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
-    #policy = LSTMPolicy(spec=env.spec, **policy_hparam)
-    policy = FNNPolicy(spec=env.spec, **policy_hparam)
+    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1)
+    #policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+    policy = LSTMPolicy(spec=env.spec, **policy_hparam)
+    #policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
     for p in policy.net.output_layer.parameters():
@@ -50,22 +50,22 @@ if __name__ == "__main__":
             p /= 100
 
     # Critic
-    #critic_hparam = dict(hidden_size=64, num_recurrent_layers=1)
-    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
-    #critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
-    critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+    critic_hparam = dict(hidden_size=64, num_recurrent_layers=1)
+    #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
+    critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+    #critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
     algo_hparam = dict(
-        max_iter=10,
+        max_iter=100,
         tb_name="ppo",
         traj_len=4000,
         gamma=0.99,
         lam=0.97,
-        env_num=10,
-        cpu_num=min(9,mp.cpu_count()-1),
+        env_num=16,
+        cpu_num=8,
         epoch_num=40,
-        device="cpu",
+        device="cuda:0",
         max_kl=0.05,
         std_init=1.0,
         clip_ratio=0.1,
