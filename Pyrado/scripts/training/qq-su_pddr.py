@@ -33,18 +33,17 @@ Train an agent to solve the Quanser Qube swing-up task using Policy Distillation
     Call with defining --max_steps.
 """
 import torch as to
-from torch.optim import lr_scheduler
+import multiprocessing as mp
 
 import pyrado
 from pyrado.algorithms.meta.pddr import PDDR
-from pyrado.algorithms.step_based.gae import GAE
-from pyrado.algorithms.step_based.ppo import PPO
+from pyrado.algorithms.step_based.ppo_gae import PPOGAE
 from pyrado.domain_randomization.default_randomizers import create_default_randomizer
 from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.environment_wrappers.domain_randomization import DomainRandWrapperLive
 from pyrado.environments.pysim.quanser_qube import QQubeSwingUpSim
 from pyrado.logger.experiment import save_dicts_to_yaml, setup_experiment
-from pyrado.policies.feed_forward.fnn import FNNPolicy
+from pyrado.policies.feed_back.fnn import FNNPolicy
 from pyrado.policies.special.environment_specific import QQubeSwingUpAndBalanceCtrl
 from pyrado.spaces import ValueFunctionSpace
 from pyrado.utils.argparser import get_argparser
@@ -66,7 +65,7 @@ if __name__ == "__main__":
     # Set seed if desired
     pyrado.set_seed(args.seed, verbose=True)
     use_cuda = args.device == "cuda"
-    descr = f"_{args.max_steps}st_{args.freq}Hz"
+    descr = f"_{args.max_steps}st_{args.freq}Hz_{args.num_teachers}t_{FNNPolicy.name}"
 
     # Environment
     env_hparams = dict(dt=1 / args.freq, max_steps=args.max_steps)
@@ -86,38 +85,29 @@ if __name__ == "__main__":
                 p /= 100
 
         # Teacher critic
-        vfcn_hparam = dict(hidden_sizes=[32, 32], hidden_nonlin=to.relu)
-        vfcn = FNNPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **vfcn_hparam)
-        critic_hparam = dict(
-            gamma=0.9844224855479998,
-            lamda=0.9700148505302241,
-            num_epoch=5,
-            batch_size=500,
-            standardize_adv=False,
-            lr=7.058326426522811e-4,
-            max_grad_norm=6.0,
-            lr_scheduler=lr_scheduler.ExponentialLR,
-            lr_scheduler_hparam=dict(gamma=0.999),
-        )
-        critic = GAE(vfcn, **critic_hparam)
+        critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp, use_cuda = use_cuda)
+        critic = FNNPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **critic_hparam)
+
 
         # Teacher subroutine
         teacher_algo_hparam = dict(
-            eps_clip=0.12648736789309026,
-            min_steps=env_real.max_steps,
-            num_epoch=7,
-            batch_size=500,
-            std_init=0.7573286998997557,
-            lr=6.999956625305722e-04,
-            max_grad_norm=1.0,
-            num_workers=8,
-            lr_scheduler=lr_scheduler.ExponentialLR,
-            lr_scheduler_hparam=dict(gamma=0.999),
             max_iter=args.max_iter_teacher,
+            tb_name="ppo",
+            traj_len=args.max_steps,
+            gamma=0.99,
+            lam=0.97,
+            env_num=30,
+            cpu_num=min(9, int(mp.cpu_count()/8)),
+            epoch_num=40,
+            device=args.device,
+            max_kl=0.05,
+            std_init=1.0,
+            clip_ratio=0.1,
+            lr=2e-3,
             critic=critic,
         )
 
-        teacher_algo = PPO
+        teacher_algo = PPOGAE
 
     else:
         teacher_policy = None
@@ -137,7 +127,7 @@ if __name__ == "__main__":
     algo_hparam = dict(
         max_iter=args.max_iter,
         min_steps=args.max_steps,
-        num_cpu=12,
+        num_cpu=int(mp.cpu_count()/2),
         std_init=0.15,
         num_epochs=args.num_epochs,
         num_teachers=args.num_teachers,

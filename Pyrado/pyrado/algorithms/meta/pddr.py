@@ -32,6 +32,7 @@ from typing import Any, List, Tuple
 
 import numpy as np
 import torch as to
+import multiprocessing as mp
 
 import pyrado
 from pyrado.algorithms.base import Algorithm, InterruptableAlgorithm
@@ -135,7 +136,7 @@ class PDDR(InterruptableAlgorithm):
             self.set_random_envs()
 
             # Prepare folders
-            self.teacher_ex_dirs = [os.path.join(self.save_dir, f"teachers_{idx}") for idx in range(self.num_teachers)]
+            self.teacher_ex_dirs = [os.path.join(self.save_dir, f"teacher_{idx}") for idx in range(self.num_teachers)]
             for idx in range(self.num_teachers):
                 os.makedirs(self.teacher_ex_dirs[idx], exist_ok=True)
 
@@ -170,15 +171,12 @@ class PDDR(InterruptableAlgorithm):
         self.optimizer = to.optim.Adam([{"params": self.policy.parameters()}], lr=lr)
 
         # Environments
-        self.samplers = [
-            ParallelRolloutSampler(
-                self.teacher_envs[t],
-                deepcopy(self._expl_strat),
-                num_workers=int(self.num_cpu / self.num_teachers),
+        self.sampler = ParallelRolloutSampler(
+                self.teacher_envs[0],
+                self._expl_strat,
+                num_workers=self.num_cpu,
                 min_steps=self.min_steps,
             )
-            for t in range(self.num_teachers)
-        ]
 
         self.teacher_weights = np.ones(self.num_teachers)
 
@@ -234,8 +232,9 @@ class PDDR(InterruptableAlgorithm):
         ros = []
         rets = []
         all_lengths = []
-        for sampler in self.samplers:
-            samples = sampler.sample()
+        for t in range(self.num_teachers):
+            self.sampler.reinit(self.teacher_envs[t], self.teacher_expl_strats[t])
+            samples = self.sampler.sample()
             ros.append(samples)
             rets.extend([sample.undiscounted_return() for sample in samples])
             all_lengths.extend([sample.length for sample in samples])
@@ -304,9 +303,10 @@ class PDDR(InterruptableAlgorithm):
         :param snapshot_mode: determines when the snapshots are stored (e.g. on every iteration or on new high-score)
         :param seed: seed value for the random number generators, pass `None` for no seeding
         """
-        for idx in range(self.num_teachers):
-            print_cbt(f"Training teacher {idx + 1} of {self.num_teachers}... ", "c")
-            self._train_teacher(idx, snapshot_mode, seed)
+        a_pool = mp.pool.ThreadPool(processes=8)
+        a_pool.starmap_async(self._train_teacher, [(idx, snapshot_mode, seed) for idx in range(self.num_teachers)])
+        a_pool.close()
+        a_pool.join()
 
         self.teacher_policies = [a.policy for a in self.algos]
         self.teacher_expl_strats = [a.expl_strat for a in self.algos]
@@ -315,7 +315,7 @@ class PDDR(InterruptableAlgorithm):
     def load_teachers(self):
         """Recursively load all teachers that can be found in the current experiment's directory."""
         # Get the experiment's directory to load from
-        ex_dir = ask_for_experiment(max_display=10, env_name=self.env_real.name, perma=False)
+        ex_dir = ask_for_experiment(max_display=75, env_name=self.env_real.name, perma=False)
         self.load_teacher_experiment(ex_dir)
         if len(self.teacher_policies) < self.num_teachers:
             print(
