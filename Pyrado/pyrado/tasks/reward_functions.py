@@ -414,15 +414,18 @@ class ForwardVelocityRewFcn(RewFcn):
 
 
 class QCartPoleSwingUpRewFcn(RewFcn):
-    """Custom reward function for QCartPoleSwingUpSim."""
+    """ Custom reward function for QCartPoleSwingUpSim. """
 
-    def __init__(self, factor: float = 0.9):
+    def __init__(self, factor: float = 0.9, max_dist: float = 0.20, max_act: float = 5.0, scales = [np.pi, 0.4]):
         """
         Constructor
-
         :param factor: weighting factor of rotation error to position error
         """
         self.factor = factor
+        self.max_dist = max_dist
+        self.max_act = max_act
+        self.scales = scales
+
 
     def __call__(self, err_s: np.ndarray, err_a: np.ndarray, remaining_steps: int = None) -> float:
         if not isinstance(err_s, np.ndarray):
@@ -430,5 +433,12 @@ class QCartPoleSwingUpRewFcn(RewFcn):
         if not isinstance(err_a, np.ndarray):
             raise pyrado.TypeErr(given=err_a, expected_type=np.ndarray)
 
+        rotation_rew = 1 - np.abs(err_s[1] / self.scales[0])
+        distance_rew = 1 - np.abs(err_s[0] / self.scales[1])
+
+        if np.abs(err_s[0]) >= self.max_dist or np.abs(err_a[0]) >= self.max_act:
+            return 0.0
+
         # Reward should be roughly between [0, 1]
-        return float(self.factor * (1 - np.abs(err_s[1] / np.pi) ** 2) + (1 - self.factor) * (np.abs(err_s[0])))
+        rew = self.factor*rotation_rew + (1-self.factor)*distance_rew
+        return float(np.clip(rew, 0, 1))

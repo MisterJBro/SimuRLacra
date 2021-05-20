@@ -39,7 +39,7 @@ from pyrado.spaces.box import BoxSpace
 from pyrado.tasks.base import Task
 from pyrado.tasks.desired_state import RadiallySymmDesStateTask
 from pyrado.tasks.final_reward import FinalRewMode, FinalRewTask
-from pyrado.tasks.reward_functions import QuadrErrRewFcn
+from pyrado.tasks.reward_functions import QCartPoleSwingUpRewFcn
 
 
 class QCartPoleSim(SimPyEnv, Serializable):
@@ -272,13 +272,9 @@ class QCartPoleStabSim(QCartPoleSim, Serializable):
     def _create_task(self, task_args: dict) -> Task:
         # Define the task including the reward function
         state_des = task_args.get("state_des", np.array([0.0, np.pi, 0.0, 0.0]))
-        Q = task_args.get("Q", np.diag([5e-0, 1e1, 1e-2, 1e-2]))
-        R = task_args.get("R", np.diag([1e-3]))
+        rew_fcn = QCartPoleSwingUpRewFcn(factor= 0.9, max_dist = 0.20, max_act = 6.0, scales = [np.pi, 0.4])
 
-        return FinalRewTask(
-            RadiallySymmDesStateTask(self.spec, state_des, QuadrErrRewFcn(Q, R), idcs=[1]),
-            mode=FinalRewMode(state_dependent=True, time_dependent=True),
-        )
+        return RadiallySymmDesStateTask(self.spec, state_des, rew_fcn, idcs=[1])
 
 
 class QCartPoleSwingUpSim(QCartPoleSim, Serializable):
@@ -336,12 +332,6 @@ class QCartPoleSwingUpSim(QCartPoleSim, Serializable):
     def _create_task(self, task_args: dict) -> Task:
         # Define the task including the reward function
         state_des = task_args.get("state_des", np.array([0.0, np.pi, 0.0, 0.0]))
-        Q = task_args.get("Q", np.diag([3e-1, 5e-1, 5e-3, 1e-3]))
-        R = task_args.get("R", np.diag([1e-3]))
-        rew_fcn = QuadrErrRewFcn(Q, R)
+        rew_fcn = QCartPoleSwingUpRewFcn(factor= 0.9, max_dist = 0.20, max_act = 6.0, scales = [np.pi, 0.4])
 
-        return FinalRewTask(
-            RadiallySymmDesStateTask(self.spec, state_des, rew_fcn, idcs=[1]),
-            mode=FinalRewMode(always_negative=True),
-            factor=1e4,
-        )
+        return RadiallySymmDesStateTask(self.spec, state_des, rew_fcn, idcs=[1])
