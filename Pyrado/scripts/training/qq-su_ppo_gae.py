@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     # Subroutine
     algo_hparam = dict(
-        max_iter=100,
+        max_iter=10,
         tb_name="ppo",
         traj_len=4000,
         gamma=0.99,
@@ -86,10 +86,10 @@ if __name__ == "__main__":
     algo.train(snapshot_mode="best", seed=args.seed)
     
     # Test policy
-    while True:
-        input('Press some key to continue:')
-        ro = rollout(
-            env,
-            algo.expl_strat,
-            render_mode=RenderMode(text=True, video=False)
-        )
+    #while True:
+    #    input('Press some key to continue:')
+    #    ro = rollout(
+    #        env,
+    #        algo.expl_strat,
+    #        render_mode=RenderMode(text=True, video=False)
+    #    )
