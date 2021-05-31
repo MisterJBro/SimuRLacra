@@ -114,6 +114,9 @@ class PDDR(InterruptableAlgorithm):
         self.device = device
         self.env_real = env
 
+        self.teacher_algo = teacher_algo
+        self.teacher_algo_hparam = teacher_algo_hparam
+        self.teacher_policy = teacher_policy
         self.teacher_policies = []
         self.teacher_envs = []
         self.teacher_expl_strats = []
@@ -139,18 +142,6 @@ class PDDR(InterruptableAlgorithm):
             self.teacher_ex_dirs = [os.path.join(self.save_dir, f"teacher_{idx}") for idx in range(self.num_teachers)]
             for idx in range(self.num_teachers):
                 os.makedirs(self.teacher_ex_dirs[idx], exist_ok=True)
-
-            # Create teacher algos
-            self.algos = [
-                teacher_algo(
-                    save_dir=self.teacher_ex_dirs[idx],
-                    env=self.teacher_envs[idx],
-                    policy=deepcopy(teacher_policy),
-                    logger=None,
-                    **deepcopy(teacher_algo_hparam),
-                )
-                for idx in range(self.num_teachers)
-            ]
         elif teacher_extra is not None:
             self.unpack_teachers(teacher_extra)
             assert self.num_teachers == len(self.teacher_policies)
@@ -276,16 +267,6 @@ class PDDR(InterruptableAlgorithm):
             # This algorithm instance is not a subroutine of another algorithm
             pyrado.save(self.env_real, "env.pkl", self.save_dir)
 
-    def _train_teacher(self, idx: int, snapshot_mode: str = "latest", seed: int = None):
-        """
-        Wrapper for use of multiprocessing: Trains one teacher.
-
-        :param idx: index of the teacher to be trained
-        :param snapshot_mode: determines when the snapshots are stored (e.g. on every iteration or on new high-score)
-        :param seed: seed value for the random number generators, pass `None` for no seeding
-        """
-        self.algos[idx].train(snapshot_mode=snapshot_mode, seed=seed)
-
     def set_random_envs(self):
         """Creates random environments of the given type."""
         self.randomizer.randomize(num_samples=self.num_teachers)
@@ -303,14 +284,26 @@ class PDDR(InterruptableAlgorithm):
         :param snapshot_mode: determines when the snapshots are stored (e.g. on every iteration or on new high-score)
         :param seed: seed value for the random number generators, pass `None` for no seeding
         """
-        a_pool = mp.pool.ThreadPool(processes=8)
-        a_pool.starmap_async(self._train_teacher, [(idx, snapshot_mode, seed) for idx in range(self.num_teachers)])
-        a_pool.close()
-        a_pool.join()
+        
+        self.teacher_policies = []
+        self.teacher_expl_strats = []
+        self.teacher_critics = []
 
-        self.teacher_policies = [a.policy for a in self.algos]
-        self.teacher_expl_strats = [a.expl_strat for a in self.algos]
-        self.teacher_critics = [a.critic for a in self.algos]
+        for idx in range(self.num_teachers):
+            algo = self.teacher_algo(
+                save_dir=self.teacher_ex_dirs[idx],
+                env=self.teacher_envs[idx],
+                policy=deepcopy(self.teacher_policy),
+                logger=None,
+                **deepcopy(self.teacher_algo_hparam),
+            )
+
+            algo.train(snapshot_mode, seed)
+            self.teacher_policies.append(deepcopy(algo.policy))
+            self.teacher_expl_strats.append(deepcopy(algo.expl_strat))
+            self.teacher_critics.append(deepcopy(algo.critic))
+
+            del algo
 
     def load_teachers(self):
         """Recursively load all teachers that can be found in the current experiment's directory."""
