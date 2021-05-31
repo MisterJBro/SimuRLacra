@@ -23,7 +23,7 @@ class Envs:
         """
         assert (
             cpu_num > 0 and env_num >= cpu_num
-        ), "CPU num has to be greater 0 and env num has to be greater or equal to env num!"
+        ), "CPU num has to be greater 0 and env num has to be greater or equal to cpu num!"
 
         self.env_num = env_num
         test_env = env

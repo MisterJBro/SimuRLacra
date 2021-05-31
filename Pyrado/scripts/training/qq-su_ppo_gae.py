@@ -33,24 +33,25 @@ if __name__ == "__main__":
 
     # Set seed if desired
     pyrado.set_seed(args.seed, verbose=True) 
+    use_cuda = args.device == "cuda"
  
     # Environment
     env_hparams = dict(dt=1 / 250.0, max_steps=4000)
     env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
 
     # Policy
-    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1)
+    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, use_cuda=use_cuda)
     #policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
     policy = LSTMPolicy(spec=env.spec, **policy_hparam)
     #policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
-    for p in policy.net.output_layer.parameters():
+    for p in policy.output_layer.parameters():
         with to.no_grad():
             p /= 100
 
     # Critic
-    critic_hparam = dict(hidden_size=64, num_recurrent_layers=1)
+    critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, use_cuda=use_cuda)
     #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
     critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
     #critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
@@ -65,7 +66,7 @@ if __name__ == "__main__":
         env_num=16,
         cpu_num=8,
         epoch_num=40,
-        device="cuda:0",
+        device=args.device,
         max_kl=0.05,
         std_init=1.0,
         clip_ratio=0.1,

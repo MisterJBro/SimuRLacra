@@ -129,7 +129,7 @@ class RNNPolicyBase(RecurrentPolicy):
             hidden = self._unpack_hidden(hidden, batch_size)
 
         # Pass the input through hidden RNN layers
-        out, new_hidden = self.rnn_layers(obs, hidden)
+        out, new_hidden = self.rnn_layers(obs, (hidden[0].contiguous(), hidden[1].contiguous()))
 
         # And through the output layer
         act = self.output_layer(out)

@@ -43,6 +43,7 @@ from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.environment_wrappers.domain_randomization import DomainRandWrapperLive
 from pyrado.environments.pysim.quanser_qube import QQubeSwingUpSim
 from pyrado.logger.experiment import save_dicts_to_yaml, setup_experiment
+from pyrado.policies.recurrent.rnn import LSTMPolicy
 from pyrado.policies.feed_back.fnn import FNNPolicy
 from pyrado.policies.special.environment_specific import QQubeSwingUpAndBalanceCtrl
 from pyrado.spaces import ValueFunctionSpace
@@ -65,7 +66,8 @@ if __name__ == "__main__":
     # Set seed if desired
     pyrado.set_seed(args.seed, verbose=True)
     use_cuda = args.device == "cuda"
-    descr = f"_{args.max_steps}st_{args.freq}Hz_{args.num_teachers}t_{FNNPolicy.name}"
+    #descr = f"_{args.max_steps}st_{args.freq}Hz_{args.num_teachers}t_{FNNPolicy.name}"
+    descr = f"_{args.max_steps}st_{args.freq}Hz_{args.num_teachers}t_{LSTMPolicy.name}"
 
     # Environment
     env_hparams = dict(dt=1 / args.freq, max_steps=args.max_steps)
@@ -74,19 +76,21 @@ if __name__ == "__main__":
 
     if args.train_teachers:
         # Teacher policy
-        teacher_policy_hparam = dict(
-            hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, use_cuda=use_cuda
-        )
-        teacher_policy = FNNPolicy(spec=env_real.spec, **teacher_policy_hparam)
+        #teacher_policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh, use_cuda=use_cuda)
+        teacher_policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, use_cuda=use_cuda)
+        #teacher_policy = FNNPolicy(spec=env_real.spec, **teacher_policy_hparam)
+        teacher_policy = LSTMPolicy(spec=env_real.spec, **teacher_policy_hparam)
 
         # Reduce weights of last layer, recommended by paper
-        for p in teacher_policy.net.output_layer.parameters():
+        for p in teacher_policy.output_layer.parameters():
             with to.no_grad():
                 p /= 100
 
         # Teacher critic
-        critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp, use_cuda = use_cuda)
-        critic = FNNPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **critic_hparam)
+        #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp, use_cuda = use_cuda)
+        critic_hparam = dict(hidden_size=64, num_recurrent_layers=1)
+        #critic = FNNPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **critic_hparam)
+        critic = LSTMPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **critic_hparam)
 
 
         # Teacher subroutine
@@ -96,8 +100,8 @@ if __name__ == "__main__":
             traj_len=args.max_steps,
             gamma=0.99,
             lam=0.97,
-            env_num=30,
-            cpu_num=min(9, int(mp.cpu_count()/8)),
+            env_num=6,
+            cpu_num=4, #int(mp.cpu_count()/4),
             epoch_num=40,
             device=args.device,
             max_kl=0.05,
@@ -120,8 +124,11 @@ if __name__ == "__main__":
     env_real = ActNormWrapper(env_real)
 
     # Policy
-    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
-    policy = FNNPolicy(spec=env_real.spec, **policy_hparam)
+    #policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, use_cuda=use_cuda)
+
+    #policy = FNNPolicy(spec=env_real.spec, **policy_hparam)
+    policy = LSTMPolicy(spec=env_real.spec, **policy_hparam)
 
     # Subroutine
     algo_hparam = dict(
