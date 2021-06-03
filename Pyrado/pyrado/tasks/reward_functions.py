@@ -433,8 +433,9 @@ class QCartPoleSwingUpRewFcn(RewFcn):
         if not isinstance(err_a, np.ndarray):
             raise pyrado.TypeErr(given=err_a, expected_type=np.ndarray)
 
-        rotation_rew = 1 - np.abs(err_s[1] / self.scales[0])
-        distance_rew = 1 - np.abs(err_s[0] / self.scales[1])
+        rotation_rew = (1 - np.abs(err_s[1] / self.scales[0]))**2
+        distance_rew = (1 - np.abs(err_s[0] / self.scales[1]))**2
+        #action_rew = (1 - np.abs(err_s[0] / self.scales[1]))**2
 
         if np.abs(err_s[0]) >= self.max_dist or np.abs(err_a[0]) >= self.max_act:
             return 0.0

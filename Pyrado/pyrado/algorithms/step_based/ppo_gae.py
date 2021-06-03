@@ -180,7 +180,7 @@ class PPOGAE(Algorithm):
         self.logger.add_value("num total samples", np.sum(all_lengths))
 
         # Early stoping
-        if self.early_stopping and self._curr_iter > 50 and np.mean(rets) > 0.8 * self.traj_len and self.expl_strat.std.item() < 0.3:
+        if self.early_stopping and self._curr_iter > 50 and np.mean(rets) > 0.95 * self.traj_len and self.expl_strat.std.item() < 0.2:
             print('Reached optimal policy! Early stop!' )
             self.end = True
             return

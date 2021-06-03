@@ -17,6 +17,8 @@ from pyrado.sampling.rollout import rollout
 from pyrado.utils.argparser import get_argparser
 from pyrado.utils.data_types import EnvSpec
 from pyrado.spaces import ValueFunctionSpace
+from pyrado.utils.experiments import load_experiment
+from pyrado.logger.experiment import Experiment, ask_for_experiment
 import multiprocessing as mp
 
 
@@ -40,9 +42,9 @@ if __name__ == "__main__":
     env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
 
     # Policy
-    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, use_cuda=use_cuda)
-    #policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
     policy = LSTMPolicy(spec=env.spec, **policy_hparam)
+    #policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
     #policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
@@ -51,9 +53,9 @@ if __name__ == "__main__":
             p /= 100
 
     # Critic
-    critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, use_cuda=use_cuda)
-    #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
+    critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.exp, use_cuda=use_cuda)
     critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+    #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
     #critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
@@ -63,14 +65,14 @@ if __name__ == "__main__":
         traj_len=4000,
         gamma=0.99,
         lam=0.97,
-        env_num=16,
-        cpu_num=8,
+        env_num=30,
+        cpu_num=3,
         epoch_num=40,
         device=args.device,
         max_kl=0.05,
         std_init=1.0,
         clip_ratio=0.1,
-        lr=1e-3,
+        lr=2e-3,
     )
     algo = PPOGAE(ex_dir, env, policy, critic, **algo_hparam)
 
@@ -87,10 +89,10 @@ if __name__ == "__main__":
     algo.train(snapshot_mode="best", seed=args.seed)
     
     # Test policy
-    #while True:
-    #    input('Press some key to continue:')
-    #    ro = rollout(
-    #        env,
-    #        algo.expl_strat,
-    #        render_mode=RenderMode(text=True, video=False)
-    #    )
+    while True:
+        input('Press some key to continue:')
+        ro = rollout(
+            env,
+            algo.expl_strat,
+            render_mode=RenderMode(text=True, video=True)
+        )
