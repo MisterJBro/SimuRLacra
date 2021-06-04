@@ -42,21 +42,21 @@ if __name__ == "__main__":
     env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
 
     # Policy
-    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
-    policy = LSTMPolicy(spec=env.spec, **policy_hparam)
-    #policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
-    #policy = FNNPolicy(spec=env.spec, **policy_hparam)
+    #policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
+    #policy = LSTMPolicy(spec=env.spec, **policy_hparam)
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+    policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Reduce weights of last layer, recommended by paper
-    for p in policy.output_layer.parameters():
+    for p in policy.net.output_layer.parameters():
         with to.no_grad():
             p /= 100
 
     # Critic
-    critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.exp, use_cuda=use_cuda)
-    critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
-    #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
-    #critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+    #critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.exp, use_cuda=use_cuda)
+    #critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
+    critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
     algo_hparam = dict(
@@ -93,6 +93,8 @@ if __name__ == "__main__":
         input('Press some key to continue:')
         ro = rollout(
             env,
-            algo.expl_strat,
+            algo.policy,
             render_mode=RenderMode(text=True, video=True)
         )
+
+        print_cbt(f'Return: {ro.undiscounted_return()}', 'g', bright=True)

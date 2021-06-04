@@ -235,15 +235,12 @@ def load_experiment(
 
     elif algo.name == "ppo_gae":
         # Environment
-        env = pyrado.load(None, "env", "pkl", ex_dir, None)
+        env = pyrado.load("env.pkl", ex_dir)
         # Policy
-        policy = pyrado.load(algo.policy, f"{args.policy_name}", "pt", ex_dir, None)
-        print_cbt(f"Loaded {osp.join(ex_dir, f'{args.policy_name}.pt')}", "g")
+        policy = pyrado.load(f"{args.policy_name}.pt", ex_dir, obj=algo.policy, verbose=True)
         # Extra (value function, exploration strategy)
-        extra["vfcn"] = pyrado.load(algo.critic, f"{args.vfcn_name}", "pt", ex_dir, None)
-        print_cbt(f"Loaded {osp.join(ex_dir, f'{args.vfcn_name}.pt')}", "g")
-        extra["expl_strat"] = pyrado.load(algo.expl_strat, f"expl_strat", "pt", ex_dir, None)
-        print_cbt(f"Loaded {osp.join(ex_dir, f'expl_strat.pt')}", "g")
+        extra["vfcn"] = pyrado.load(f"{args.vfcn_name}.pt", ex_dir, obj=algo.critic, verbose=True)
+        extra["expl_strat"] = pyrado.load(f"expl_strat.pt", ex_dir, obj=algo.expl_strat, verbose=True)
         extra["highest_avg_ret"] = algo._highest_avg_ret
 
     else:
