@@ -58,6 +58,10 @@ if __name__ == "__main__":
     critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
     critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
+    #ex_dir2 = ask_for_experiment()
+    #env, policy, extra = load_experiment(ex_dir2)
+    #critic = extra["vfcn"]
+
     # Subroutine
     algo_hparam = dict(
         max_iter=100,
@@ -70,7 +74,7 @@ if __name__ == "__main__":
         epoch_num=40,
         device=args.device,
         max_kl=0.05,
-        std_init=1.0,
+        std_init=0.2,
         clip_ratio=0.1,
         lr=2e-3,
     )

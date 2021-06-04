@@ -5,6 +5,7 @@ import os
 import numpy as np
 import pyrado
 import torch as to
+from torch.optim.lr_scheduler import StepLR
 from copy import deepcopy
 
 from pyrado.algorithms.base import Algorithm
@@ -112,7 +113,10 @@ class PPOGAE(Algorithm):
                 {"params": self.critic.parameters()},
             ],
             lr=lr,
+            weight_decay=1e-5,
         )
+        self.scheduler = StepLR(optimizer, step_size=1, gamma=0.1)
+        self.lower_lr = True
         self.criterion = to.nn.SmoothL1Loss()
         self.reset_states()
 
@@ -178,6 +182,12 @@ class PPOGAE(Algorithm):
         self.logger.add_value("std var", self.expl_strat.std.item(), 4)
         self.logger.add_value("avg rollout len", np.mean(all_lengths), 4)
         self.logger.add_value("num total samples", np.sum(all_lengths))
+
+        # Learning rate
+        if self.lower_lr and np.mean(rets) > 0.9 * self.traj_len
+            self.lower_lr = False
+            self.scheduler.step()
+            self.expl_strat.std /= 3
 
         # Early stoping
         if self.early_stopping and self._curr_iter > 50 and np.mean(rets) > 0.95 * self.traj_len and self.expl_strat.std.item() < 0.2:
