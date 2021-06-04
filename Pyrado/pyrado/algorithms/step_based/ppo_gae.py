@@ -115,7 +115,7 @@ class PPOGAE(Algorithm):
             lr=lr,
             weight_decay=1e-5,
         )
-        self.scheduler = StepLR(optimizer, step_size=1, gamma=0.1)
+        self.scheduler = StepLR(self.optimizer, step_size=1, gamma=0.1)
         self.lower_lr = True
         self.criterion = to.nn.SmoothL1Loss()
         self.reset_states()
@@ -184,7 +184,7 @@ class PPOGAE(Algorithm):
         self.logger.add_value("num total samples", np.sum(all_lengths))
 
         # Learning rate
-        if self.lower_lr and np.mean(rets) > 0.9 * self.traj_len
+        if self.lower_lr and np.mean(rets) > 0.9 * self.traj_len:
             self.lower_lr = False
             self.scheduler.step()
             self.expl_strat.std /= 3
