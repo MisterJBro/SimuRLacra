@@ -195,11 +195,11 @@ class PPOGAE(Algorithm):
             self.end = True
             return
 
-        # Update policy and value function
-        self.update()
-
         # Save snapshot data
         self.make_snapshot(snapshot_mode, np.mean(rets), meta_info)
+        
+        # Update policy and value function
+        self.update()
 
     def sample_batch(self) -> np.ndarray:
         """ Sample batch of trajectories for training. """
