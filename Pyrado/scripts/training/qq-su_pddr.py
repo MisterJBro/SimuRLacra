@@ -50,15 +50,18 @@ from pyrado.spaces import ValueFunctionSpace
 from pyrado.utils.argparser import get_argparser
 from pyrado.utils.data_types import EnvSpec
 
+parser = get_argparser()
+parser.add_argument("--freq", type=int, default=250)
+parser.add_argument("--max_iter_teacher", type=int, default=200)
+parser.add_argument("--train_teachers", action="store_true", default=False)
+parser.add_argument("--num_teachers", type=int, default=2)
+parser.add_argument("--max_iter", type=int, default=500)
+parser.add_argument("--num_epochs", type=int, default=10)
 
 if __name__ == "__main__":
-    parser = get_argparser()
-    parser.add_argument("--freq", type=int, default=250)
-    parser.add_argument("--max_iter_teacher", type=int, default=200)
-    parser.add_argument("--train_teachers", action="store_true", default=False)
-    parser.add_argument("--num_teachers", type=int, default=2)
-    parser.add_argument("--max_iter", type=int, default=500)
-    parser.add_argument("--num_epochs", type=int, default=10)
+    # For multiprocessing and float32 support, recommended to include at top of script
+    freeze_support()
+    to.set_default_dtype(to.float32)
 
     # Parse command line arguments
     args = parser.parse_args()
@@ -75,8 +78,8 @@ if __name__ == "__main__":
 
     if args.train_teachers:
         # Teacher Policy
-        policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
-        policy = LSTMPolicy(spec=env.spec, **policy_hparam)
+        teacher_policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
+        teacher_policy = LSTMPolicy(spec=env.spec, **policy_hparam)
 
         # Reduce weights of last layer, recommended by paper
         for p in policy.output_layer.parameters():
