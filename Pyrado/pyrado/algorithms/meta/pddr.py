@@ -47,6 +47,7 @@ from pyrado.sampling.parallel_rollout_sampler import ParallelRolloutSampler
 from pyrado.sampling.step_sequence import StepSequence
 from pyrado.utils.experiments import load_experiment
 from pyrado.utils.input_output import print_cbt
+from pyrado.sampling.envs import Envs
 
 
 class PDDR(InterruptableAlgorithm):
@@ -162,13 +163,7 @@ class PDDR(InterruptableAlgorithm):
         self.optimizer = to.optim.Adam([{"params": self.policy.parameters()}], lr=lr)
 
         # Environments
-        self.sampler = ParallelRolloutSampler(
-                self.teacher_envs[0],
-                self._expl_strat,
-                num_workers=self.num_cpu,
-                min_steps=self.min_steps,
-            )
-
+        self.sampler = Envs(len(teachers), len(teachers), env, args.max_steps, 0.99, 0.97, env_list=teacher_envs)
         self.teacher_weights = np.ones(self.num_teachers)
 
         # Distillation loss criterion
@@ -293,7 +288,6 @@ class PDDR(InterruptableAlgorithm):
         self.teacher_policies = []
         self.teacher_expl_strats = []
         for dir in state["teacher_ex_dirs"]:
-            print("setstate:", pyrado.TEMP_DIR, os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/")+len("/data/temp/"):]))
             dir = os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/")+len("/data/temp/"):])
 
             _, teacher_policy, teacher_extra = load_experiment(dir)
@@ -356,7 +350,6 @@ class PDDR(InterruptableAlgorithm):
         :param exp: the teacher's experiment object
         """
         _, _, extra = load_experiment(exp)
-        quit()
         
         self.unpack_teachers(extra)
 
@@ -369,7 +362,6 @@ class PDDR(InterruptableAlgorithm):
         num_teachers_to_load = self.num_teachers - len(self.teacher_policies)
         self.teacher_ex_dirs.extend(extra["teacher_ex_dirs"][: num_teachers_to_load])
         for dir in self.teacher_ex_dirs:
-            print(dir, dir.find("/data/temp/"), os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/"):]))
             dir = os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/")+len("/data/temp/"):])
             teacher_env, teacher_policy, teacher_extra = load_experiment(dir)
             self.teacher_envs.append(teacher_env)
