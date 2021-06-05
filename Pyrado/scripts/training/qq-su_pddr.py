@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
         # Teacher Critic
         critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.exp, use_cuda=use_cuda)
-        critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+        critic = LSTMPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **critic_hparam)
 
         # Teacher subroutine
         teacher_algo_hparam = dict(
