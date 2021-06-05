@@ -115,7 +115,7 @@ class PPOGAE(Algorithm):
             lr=lr,
             weight_decay=1e-5,
         )
-        self.scheduler = StepLR(optimizer, step_size=1, gamma=0.1)
+        self.scheduler = StepLR(self.optimizer, step_size=1, gamma=0.1)
         self.lower_lr = True
         self.criterion = to.nn.SmoothL1Loss()
         self.reset_states()
