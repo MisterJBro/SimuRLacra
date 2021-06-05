@@ -34,6 +34,7 @@ import numpy as np
 import torch as to
 import multiprocessing as mp
 
+from pyrado.algorithms.step_based.ppo_gae import PPOGAE
 import pyrado
 from pyrado.algorithms.base import Algorithm, InterruptableAlgorithm
 from pyrado.domain_randomization.default_randomizers import create_default_randomizer
@@ -288,12 +289,13 @@ class PDDR(InterruptableAlgorithm):
         super().__setstate__(state)
 
         # Recover settings of environment
-        self.envs = [Envs(state["cpu_num"], state["env_num"], state["env"], state["traj_len"], state["gamma"], state["lam"])]
+        self.teacher_policies = []
+        self.teacher_expl_strats = []
         for dir in state["teacher_ex_dirs"]:
             print(dir, dir.find("/data/temp/"), os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/"):]))
             teacher_env, teacher_policy, teacher_extra = load_experiment(dir)
-            self.teacher_policies.append(pyrado.load(f"policy.pt", dir, obj=algo.policy, verbose=True))
-            self.teacher_expl_strats.append(pyrado.load(f"expl_strat.pt", dir, obj=algo.expl_strat, verbose=True))
+            self.teacher_policies.append(pyrado.load(f"policy.pt", dir, obj=PPOGAE.policy, verbose=True))
+            self.teacher_expl_strats.append(pyrado.load(f"expl_strat.pt", dir, obj=Policy, verbose=True))
 
 
     def set_random_envs(self):
