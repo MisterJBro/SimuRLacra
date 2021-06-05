@@ -58,9 +58,9 @@ if __name__ == "__main__":
     #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
     #critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
-    #ex_dir2 = ask_for_experiment()
-    #env, policy, extra = load_experiment(ex_dir2)
-    #critic = extra["vfcn"]
+    ex_dir2 = ask_for_experiment()
+    env, policy, extra = load_experiment(ex_dir2)
+    critic = extra["vfcn"]
 
     # Subroutine
     algo_hparam = dict(
@@ -101,4 +101,4 @@ if __name__ == "__main__":
             render_mode=RenderMode(text=True, video=True)
         )
 
-        print_cbt(f'Return: {ro.undiscounted_return()}', 'g', bright=True)
+        print(f'Return: {ro.undiscounted_return()}')
