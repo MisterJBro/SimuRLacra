@@ -184,7 +184,7 @@ class PPOGAE(Algorithm):
         self.logger.add_value("num total samples", np.sum(all_lengths))
 
         # Learning rate
-        if self.lower_lr and np.mean(rets) > 0.9 * self.traj_len
+        if self.lower_lr and np.mean(rets) > 0.9 * self.traj_len:
             self.lower_lr = False
             self.scheduler.step()
             self.expl_strat.std /= 3
