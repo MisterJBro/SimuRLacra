@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
         # Teacher critic
         #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp, use_cuda = use_cuda)
-        critic_hparam = dict(hidden_size=64, num_recurrent_layers=1)
+        critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, use_cuda=use_cuda)
         #critic = FNNPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **critic_hparam)
         critic = LSTMPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **critic_hparam)
 
@@ -100,8 +100,8 @@ if __name__ == "__main__":
             traj_len=args.max_steps,
             gamma=0.99,
             lam=0.97,
-            env_num=6,
-            cpu_num=4, #int(mp.cpu_count()/4),
+            env_num=12,
+            cpu_num=12, #int(mp.cpu_count()*2),
             epoch_num=40,
             device=args.device,
             max_kl=0.05,
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     algo_hparam = dict(
         max_iter=args.max_iter,
         min_steps=args.max_steps,
-        num_cpu=int(mp.cpu_count()/2),
+        num_cpu=2, #int(mp.cpu_count()/4),
         std_init=0.15,
         num_epochs=args.num_epochs,
         num_teachers=args.num_teachers,
