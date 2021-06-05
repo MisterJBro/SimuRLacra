@@ -74,7 +74,7 @@ if __name__ == "__main__":
         epoch_num=40,
         device=args.device,
         max_kl=0.05,
-        std_init=0.2,
+        std_init=1.0,
         clip_ratio=0.1,
         lr=2e-3,
     )
