@@ -49,6 +49,7 @@ from pyrado.policies.special.environment_specific import QQubeSwingUpAndBalanceC
 from pyrado.spaces import ValueFunctionSpace
 from pyrado.utils.argparser import get_argparser
 from pyrado.utils.data_types import EnvSpec
+from multiprocessing import freeze_support
 
 parser = get_argparser()
 parser.add_argument("--freq", type=int, default=250)
