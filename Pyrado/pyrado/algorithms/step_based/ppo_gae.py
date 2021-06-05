@@ -321,7 +321,6 @@ class PPOGAE(Algorithm):
             pyrado.save(self.env, "env.pkl", self.save_dir)
 
     def __getstate__(self):
-        self.envs
         # Remove the unpickleable elements from this algorithm instance
         tmp_envs = self.__dict__.pop("envs")
 

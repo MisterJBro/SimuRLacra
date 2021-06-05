@@ -152,7 +152,7 @@ class PDDR(InterruptableAlgorithm):
                 print(
                     f"You have loaded {len(self.teacher_policies)} teachers. Only the first {self.num_teachers} will be used!"
                 )
-                self.prune_teachers()
+                #self.prune_teachers()
             assert self.num_teachers == len(self.teacher_policies)
             self.reset_checkpoint()
 
@@ -267,6 +267,35 @@ class PDDR(InterruptableAlgorithm):
             # This algorithm instance is not a subroutine of another algorithm
             pyrado.save(self.env_real, "env.pkl", self.save_dir)
 
+
+    def __getstate__(self):
+        # Remove the unpickleable elements from this algorithm instance
+        tmp_teacher_policies = self.__dict__.pop("teacher_policies")
+
+        # Call Algorithm's __getstate__() without the unpickleable elements
+        state_dict = super(PDDR, self).__getstate__()
+
+        # Make a deep copy of the state dict such that we can return the pickleable version
+        state_dict_copy = deepcopy(state_dict)
+
+        # Insert them back
+        self.__dict__["teacher_policies"] = tmp_teacher_policies
+
+        return state_dict_copy
+
+    def __setstate__(self, state):
+        # Call Algorithm's __setstate__()
+        super().__setstate__(state)
+
+        # Recover settings of environment
+        self.envs = [Envs(state["cpu_num"], state["env_num"], state["env"], state["traj_len"], state["gamma"], state["lam"])]
+        for dir in state["teacher_ex_dirs"]:
+            print(dir, dir.find("/data/temp/"), os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/"):]))
+            teacher_env, teacher_policy, teacher_extra = load_experiment(dir)
+            self.teacher_policies.append(pyrado.load(f"policy.pt", dir, obj=algo.policy, verbose=True))
+            self.teacher_expl_strats.append(pyrado.load(f"expl_strat.pt", dir, obj=algo.expl_strat, verbose=True))
+
+
     def set_random_envs(self):
         """Creates random environments of the given type."""
         self.randomizer.randomize(num_samples=self.num_teachers)
@@ -307,6 +336,11 @@ class PDDR(InterruptableAlgorithm):
 
     def load_teachers(self):
         """Recursively load all teachers that can be found in the current experiment's directory."""
+        total_memory, used_memory, free_memory = map(
+        int, os.popen('free -t -m').readlines()[-1].split()[1:])
+        
+        print('load_teachers', total_memory, used_memory, free_memory)
+        
         # Get the experiment's directory to load from
         ex_dir = ask_for_experiment(max_display=75, env_name=self.env_real.name, perma=False)
         self.load_teacher_experiment(ex_dir)
@@ -323,6 +357,9 @@ class PDDR(InterruptableAlgorithm):
         :param exp: the teacher's experiment object
         """
         _, _, extra = load_experiment(exp)
+        total_memory, used_memory, free_memory = map(
+        int, os.popen('free -t -m').readlines()[-1].split()[1:])
+        print("load_teacher_experiment",total_memory, used_memory, free_memory)
         self.unpack_teachers(extra)
 
     def unpack_teachers(self, extra: dict):
@@ -331,11 +368,14 @@ class PDDR(InterruptableAlgorithm):
 
         :param extra: dict with teacher data
         """
-        self.teacher_policies.extend(extra["teacher_policies"])
-        self.teacher_envs.extend(extra["teacher_envs"])
-        self.teacher_expl_strats.extend(extra["teacher_expl_strats"])
-        self.teacher_critics.extend(extra["teacher_critics"])
-        self.teacher_ex_dirs.extend(extra["teacher_ex_dirs"])
+        num_teachers_to_load = self.num_teachers - len(self.teacher_policies)
+        self.teacher_ex_dirs.extend(extra["teacher_ex_dirs"][: num_teachers_to_load])
+        for dir in self.teacher_ex_dirs:
+            print(dir, dir.find("/data/temp/"), os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/"):]))
+            teacher_env, teacher_policy, teacher_extra = load_experiment(dir)
+            self.teacher_envs.append(teacher_env)
+            self.teacher_policies.append(teacher_policy)
+            self.teacher_expl_strats.append(extra["expl_strat"])
 
     def prune_teachers(self):
         """Prune teachers to only use the first num_teachers of them."""

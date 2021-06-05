@@ -82,9 +82,15 @@ def load_experiment(
     # Hyper-parameters
     extra["hparams"] = load_hyperparameters(ex_dir)
 
+    total_memory, used_memory, free_memory = map(
+    int, os.popen('free -t -m').readlines()[-1].split()[1:])
+    print("load_experiment",total_memory, used_memory, free_memory)
     # Algorithm specific
     algo = Algorithm.load_snapshot(load_dir=ex_dir, load_name="algo")
 
+    total_memory, used_memory, free_memory = map(
+    int, os.popen('free -t -m').readlines()[-1].split()[1:])
+    print("algo",total_memory, used_memory, free_memory)
     if algo.name == "spota":
         # Environment
         env = pyrado.load("env.pkl", ex_dir)
@@ -224,14 +230,23 @@ def load_experiment(
     elif algo.name == "pddr":
         # Environment
         env = pyrado.load("env.pkl", ex_dir)
+        total_memory, used_memory, free_memory = map(
+        int, os.popen('free -t -m').readlines()[-1].split()[1:])
+        print("env",total_memory, used_memory, free_memory)
         # Policy
         policy = pyrado.load(f"{args.policy_name}.pt", ex_dir, obj=algo.policy, verbose=True)
+        total_memory, used_memory, free_memory = map(
+        int, os.popen('free -t -m').readlines()[-1].split()[1:])
+        print("policy",total_memory, used_memory, free_memory)
         # Teachers
-        extra["teacher_policies"] = algo.teacher_policies
-        extra["teacher_envs"] = algo.teacher_envs
-        extra["teacher_expl_strats"] = algo.teacher_expl_strats
-        extra["teacher_critics"] = algo.teacher_critics
+        #extra["teacher_policies"] = algo.teacher_policies
+        #extra["teacher_envs"] = algo.teacher_envs
+        #extra["teacher_expl_strats"] = algo.teacher_expl_strats
+        #extra["teacher_critics"] = algo.teacher_critics
         extra["teacher_ex_dirs"] = algo.teacher_ex_dirs
+        total_memory, used_memory, free_memory = map(
+        int, os.popen('free -t -m').readlines()[-1].split()[1:])
+        print("dirs",total_memory, used_memory, free_memory)
 
     elif algo.name == "ppo_gae":
         # Environment
