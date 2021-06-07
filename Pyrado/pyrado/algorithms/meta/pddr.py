@@ -293,7 +293,7 @@ class PDDR(InterruptableAlgorithm):
             obs = to.nn.utils.rnn.pack_padded_sequence(obs, lengths=lengths, enforce_sorted=False)
     
         # Train student
-        for epoch in range(self.max_iter):
+        for epoch in range(self.num_epochs):
             self.optimizer.zero_grad()
 
             # Student actions
@@ -370,14 +370,14 @@ class PDDR(InterruptableAlgorithm):
         super().__setstate__(state)
 
         # Recover settings of environment
-        self.teacher_policies = []
-        self.teacher_expl_strats = []
-        for dir in state["teacher_ex_dirs"]:
-            dir = os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/")+len("/data/temp/"):])
+        #self.teacher_policies = []
+        #self.teacher_expl_strats = []
+        #for dir in state["teacher_ex_dirs"][:16]:
+        #    dir = os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/")+len("/data/temp/"):])
 
-            _, teacher_policy, teacher_extra = load_experiment(dir)
-            self.teacher_policies.append(teacher_policy)
-            self.teacher_expl_strats.append(teacher_extra["expl_strat"])
+        #    _, teacher_policy, teacher_extra = load_experiment(dir)
+        #    self.teacher_policies.append(teacher_policy)
+        #    self.teacher_expl_strats.append(teacher_extra["expl_strat"])
         
         self.envs = Envs(state["num_cpu"], state["num_teachers"], state["env_real"], state["min_steps"], 0.99, 0.97, env_list=state["teacher_envs"])
 

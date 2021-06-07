@@ -29,6 +29,7 @@
 """
 Load and run a policy on the associated real-world Quanser environment
 """
+import os
 import pyrado
 from pyrado.domain_randomization.utils import wrap_like_other_env
 from pyrado.environment_wrappers.utils import inner_env
@@ -37,14 +38,16 @@ from pyrado.environments.pysim.quanser_cartpole import QCartPoleSim
 from pyrado.environments.pysim.quanser_qube import QQubeSim
 from pyrado.environments.quanser.quanser_ball_balancer import QBallBalancerReal
 from pyrado.environments.quanser.quanser_cartpole import QCartPoleReal
-from pyrado.environments.quanser.quanser_qube import QQubeSwingUpReal
+from pyrado.environments.quanser.quanser_qube import QQubeSwingUpReal, QCartPoleSwingUpReal
 from pyrado.logger.experiment import ask_for_experiment
 from pyrado.sampling.rollout import after_rollout_query, rollout
 from pyrado.utils.argparser import get_argparser
 from pyrado.utils.data_types import RenderMode
 from pyrado.utils.experiments import load_experiment
 from pyrado.utils.input_output import print_cbt
+from pyrado.utils.saving_loading import save
 
+from datetime import datetime
 
 if __name__ == "__main__":
     # Parse command line arguments
@@ -56,11 +59,15 @@ if __name__ == "__main__":
     # Load the policy (trained in simulation) and the environment (for constructing the real-world counterpart)
     env_sim, policy, _ = load_experiment(ex_dir, args)
 
+    eval_path = os.path.join(ex_dir,"eval")
+    if not os.path.exists(eval_path):
+        os.makedirs(eval_path)
+
     # Detect the correct real-world counterpart and create it
     if isinstance(inner_env(env_sim), QBallBalancerSim):
         env_real = QBallBalancerReal(dt=args.dt, max_steps=args.max_steps)
     elif isinstance(inner_env(env_sim), QCartPoleSim):
-        env_real = QCartPoleReal(dt=args.dt, max_steps=args.max_steps)
+        env_real = QCartPoleSwingUpReal(dt=dt, max_steps=args.max_steps)
     elif isinstance(inner_env(env_sim), QQubeSim):
         env_real = QQubeSwingUpReal(dt=args.dt, max_steps=args.max_steps)
     else:
@@ -77,4 +84,5 @@ if __name__ == "__main__":
             env_real, policy, eval=True, record_dts=True, render_mode=RenderMode(text=False, video=args.animation)
         )
         print_cbt(f"Return: {ro.undiscounted_return()}", "g", bright=True)
+        save(obj=ro, name="deploy.pkl", save_dir=eval_path, suffix=datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
         done, _, _ = after_rollout_query(env_real, policy, ro)
