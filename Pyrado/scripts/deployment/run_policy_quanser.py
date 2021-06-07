@@ -37,8 +37,8 @@ from pyrado.environments.pysim.quanser_ball_balancer import QBallBalancerSim
 from pyrado.environments.pysim.quanser_cartpole import QCartPoleSim
 from pyrado.environments.pysim.quanser_qube import QQubeSim
 from pyrado.environments.quanser.quanser_ball_balancer import QBallBalancerReal
-from pyrado.environments.quanser.quanser_cartpole import QCartPoleReal
-from pyrado.environments.quanser.quanser_qube import QQubeSwingUpReal, QCartPoleSwingUpReal
+from pyrado.environments.quanser.quanser_cartpole import QCartPoleReal, QCartPoleSwingUpReal
+from pyrado.environments.quanser.quanser_qube import QQubeSwingUpReal
 from pyrado.logger.experiment import ask_for_experiment
 from pyrado.sampling.rollout import after_rollout_query, rollout
 from pyrado.utils.argparser import get_argparser
