@@ -57,7 +57,7 @@ parser.add_argument("--max_iter_teacher", type=int, default=200)
 parser.add_argument("--train_teachers", action="store_true", default=False)
 parser.add_argument("--num_teachers", type=int, default=2)
 parser.add_argument("--max_iter", type=int, default=500)
-parser.add_argument("--num_epochs", type=int, default=10)
+parser.add_argument("--num_epochs", type=int, default=250)
 
 if __name__ == "__main__":
     # For multiprocessing and float32 support, recommended to include at top of script
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     algo_hparam = dict(
         max_iter=args.max_iter,
         min_steps=args.max_steps,
-        num_cpu=2, #int(mp.cpu_count()/4),
+        num_cpu=16 ,#int(mp.cpu_count()/2),
         std_init=0.1,
         num_epochs=args.num_epochs,
         num_teachers=args.num_teachers,

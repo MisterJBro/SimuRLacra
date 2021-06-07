@@ -67,7 +67,7 @@ if __name__ == "__main__":
     if isinstance(inner_env(env_sim), QBallBalancerSim):
         env_real = QBallBalancerReal(dt=args.dt, max_steps=args.max_steps)
     elif isinstance(inner_env(env_sim), QCartPoleSim):
-        env_real = QCartPoleSwingUpReal(dt=dt, max_steps=args.max_steps)
+        env_real = QCartPoleSwingUpReal(dt=args.dt, max_steps=args.max_steps)
     elif isinstance(inner_env(env_sim), QQubeSim):
         env_real = QQubeSwingUpReal(dt=args.dt, max_steps=args.max_steps)
     else:
