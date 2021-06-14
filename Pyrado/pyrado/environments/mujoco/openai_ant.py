@@ -40,18 +40,18 @@ from pyrado.tasks.base import Task
 from pyrado.tasks.desired_space import DesSpaceTask
 from pyrado.tasks.desired_state import DesStateTask, RadiallySymmDesStateTask
 from pyrado.tasks.goalless import GoallessTask
-from pyrado.tasks.reward_functions import ExpQuadrErrRewFcn, ForwardVelocityRewFcn, PlusOnePerStepRewFcn
+from pyrado.tasks.reward_functions import ForwardVelocityRewFcn2
 
 
-class InvertedPendulumSim(MujocoSimEnv, Serializable):
+class AntSim(MujocoSimEnv, Serializable):
     """
-    The InvertedPendulum (v2) MuJoCo simulation environment where a inverted pendulum is balanced by a cart on a rail.
+    The Ant (v3) MuJoCo simulation environment where a four-legged creature walks as fast as possible.
 
     .. seealso::
-        https://github.com/openai/gym/blob/master/gym/envs/mujoco/inverted_pendulum.py
+        https://github.com/openai/gym/blob/master/gym/envs/mujoco/ant_v3.py
     """
 
-    name: str = "invpen"
+    name: str = "ant"
 
     def __init__(
         self,
@@ -71,25 +71,34 @@ class InvertedPendulumSim(MujocoSimEnv, Serializable):
         :param max_steps: max number of simulation time steps
         :param task_args: arguments for the task construction, e.g `dict(fwd_rew_weight=1.)`
         """
+        self._contact_force_range = (-1.0, 1.0)
+        self._exclude_current_positions_from_observation = True
+
         # Call MujocoSimEnv's constructor
-        model_path = osp.join(osp.dirname(__file__), "assets", "openai_inverted_pendulum.xml")
+        model_path = osp.join(osp.dirname(__file__), "assets", "openai_ant.xml")
         super().__init__(model_path, frame_skip, dt, max_steps, task_args)
 
         # Initial state
         noise_halfspan = self.domain_param["reset_noise_halfspan"]
         min_init_qpos = self.init_qpos - np.full_like(self.init_qpos, noise_halfspan)
         max_init_qpos = self.init_qpos + np.full_like(self.init_qpos, noise_halfspan)
-        min_init_qvel = self.init_qvel - np.full_like(self.init_qpos, noise_halfspan)
-        max_init_qvel = self.init_qvel + np.full_like(self.init_qpos, noise_halfspan)
-        min_init_state = np.concatenate([min_init_qpos, min_init_qvel]).ravel()
-        max_init_state = np.concatenate([max_init_qpos, max_init_qvel]).ravel()
+        min_init_qvel = self.init_qvel - np.full_like(self.init_qvel, noise_halfspan)
+        max_init_qvel = self.init_qvel + np.full_like(self.init_qvel, noise_halfspan)
+
+        cfrc_shape = self.sim.data.cfrc_ext.flat.copy().shape
+        min_init_cfrc = -np.ones(cfrc_shape)
+        max_init_cfrc = np.ones(cfrc_shape)
+        min_init_state = np.concatenate([min_init_qpos, min_init_qvel, min_init_cfrc]).ravel()
+        max_init_state = np.concatenate([max_init_qpos, max_init_qvel, max_init_cfrc]).ravel()
         self._init_space = BoxSpace(min_init_state, max_init_state)
 
         self.camera_config = dict(distance=5.0)
 
     @property
     def state_space(self) -> Space:
-        state_shape = np.concatenate([self.sim.data.qpos, self.sim.data.qvel]).shape
+        state_shape = np.concatenate(
+            [self.sim.data.qpos.flat, self.sim.data.qvel.flat, self.sim.data.cfrc_ext.flat]
+        ).shape
         return BoxSpace(-pyrado.inf, pyrado.inf, shape=state_shape)
 
     @property
@@ -100,35 +109,60 @@ class InvertedPendulumSim(MujocoSimEnv, Serializable):
     @property
     def act_space(self) -> Space:
         act_bounds = self.model.actuator_ctrlrange.copy().T
-        return BoxSpace(*act_bounds, labels=["cart"])
+        return BoxSpace(
+            *act_bounds, labels=["hip_4", "ankle_4", "hip_1", "ankle_1", "hip_2", "ankle_2", "hip_3", "ankle_3"]
+        )
 
     @classmethod
     def get_nominal_domain_param(cls) -> dict:
         return dict(
             reset_noise_halfspan=0.1,
-            pole_length=0.6,  # -0.001
-            half_rail_length=1,
+            # pole_length=0.6,  # -0.001
+            # half_rail_length=1,
         )
 
     def _create_task(self, task_args: dict) -> Task:
         # Define the task including the reward function
-        space_des = task_args.get(
-            "state_des",
-            BoxSpace([-pyrado.inf, -0.2, -pyrado.inf, -pyrado.inf], [pyrado.inf, 0.2, pyrado.inf, pyrado.inf]),
-        )
+        if "contact_cost_weight" not in task_args:
+            task_args["contact_cost_weight"] = 5e-4
+        if "ctrl_cost_weight" not in task_args:
+            task_args["ctrl_cost_weight"] = 0.5
+        if "healthy_reward" not in task_args:
+            task_args["healthy_reward"] = 1.0
+        if "terminate_when_unhealthy" not in task_args:
+            task_args["terminate_when_unhealthy"] = True
+        if "healthy_z_range" not in task_args:
+            task_args["healthy_z_range"] = (0.2, 1.0)
+        if "contact_force_range" not in task_args:
+            task_args["contact_force_range"] = (-1.0, 1.0)
 
-        return DesSpaceTask(self.spec, space_des, PlusOnePerStepRewFcn())
+        return GoallessTask(self.spec, ForwardVelocityRewFcn2(self._dt, **task_args))
+
+    @property
+    def contact_forces(self):
+        raw_contact_forces = self.sim.data.cfrc_ext
+        min_value, max_value = self._contact_force_range
+        contact_forces = np.clip(raw_contact_forces, min_value, max_value)
+        return contact_forces
 
     def _mujoco_step(self, act: np.ndarray) -> dict:
         self.sim.data.ctrl[:] = act
         self.sim.step()
 
-        pos = self.sim.data.qpos.copy()
-        vel = self.sim.data.qvel.copy()
-        self.state = np.concatenate([pos, vel])
-        print(self.state)
+        pos = self.sim.data.qpos.flat.copy()
+        vel = self.sim.data.qvel.flat.copy()
+        cfrc_ext = self.sim.data.cfrc_ext.flat.copy()
+        self.state = np.concatenate([pos, vel, cfrc_ext])
 
         return dict()
 
     def observe(self, state: np.ndarray) -> np.ndarray:
-        return state.copy()
+        position = state[: self.init_qpos.size].copy()
+        rest = state[self.init_qpos.size :].copy()
+
+        if self._exclude_current_positions_from_observation:
+            position = position[2:]
+
+        observations = np.concatenate((position, rest))
+
+        return observations
