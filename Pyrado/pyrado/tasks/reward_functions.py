@@ -432,8 +432,8 @@ class ForwardVelocityRewFcn2(RewFcn):
         ctrl_cost_weight: float,
         healthy_reward: float,
         terminate_when_unhealthy: bool,
-        healthy_z_range:(float),
-        contact_force_range:(float),
+        healthy_z_range: (float),
+        contact_force_range: (float),
     ):
         """
         Constructor
@@ -483,7 +483,9 @@ class ForwardVelocityRewFcn2(RewFcn):
         self.state = state
         forward_reward = (self.state[self._idx_x_pos] - self.last_x_pos) / self._dt
         ctrl_cost = self.ctrl_cost_weight * np.sum(np.square(act))
-        contact_cost = self.contact_cost_weight * np.sum(np.square(self.contact_forces(self.state[self._idx_cfrc_ext:])))
+        contact_cost = self.contact_cost_weight * np.sum(
+            np.square(self.contact_forces(self.state[self._idx_cfrc_ext :]))
+        )
         healthy_reward = self.healthy_reward
 
         self.last_x_pos = self.state[self._idx_x_pos]
@@ -494,7 +496,7 @@ class ForwardVelocityRewFcn2(RewFcn):
 
 
 class QCartPoleSwingUpRewFcn(RewFcn):
-    """ Custom reward function for QCartPoleSwingUpSim. """
+    """Custom reward function for QCartPoleSwingUpSim."""
 
     def __init__(self, factor: float = 0.9, max_dist: float = 0.20, max_act: float = 5.0, scales=[np.pi, 0.4]):
         """

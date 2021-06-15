@@ -29,7 +29,7 @@ class Worker(Process):
         self.env = env
 
     def run(self):
-        """ Creates a list of environments, and waits for commands to simulate a step, to reset or close them. """
+        """Creates a list of environments, and waits for commands to simulate a step, to reset or close them."""
         self.envs = [deepcopy(self.env) for _ in range(self.env_num)]
 
         command, acts = self.channel.recv()
@@ -44,7 +44,7 @@ class Worker(Process):
         self.close()
 
     def reset(self):
-        """ Resets all environments. """
+        """Resets all environments."""
         obss = np.array([env.reset() for env in self.envs])
         self.channel.send(obss)
 
@@ -70,6 +70,6 @@ class Worker(Process):
         self.channel.send((n_obss, rews, dones))
 
     def close(self):
-        """ Closes all own environments. """
+        """Closes all own environments."""
         for env in self.envs:
             env.close()

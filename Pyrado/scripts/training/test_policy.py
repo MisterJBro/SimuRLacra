@@ -28,11 +28,7 @@ if __name__ == "__main__":
     print(pol)
 
     while True:
-        input('Press some key to continue:')
-        ro = rollout(
-            env,
-            pol,
-            render_mode=RenderMode(text=True, video=True)
-        )
+        input("Press some key to continue:")
+        ro = rollout(env, pol, render_mode=RenderMode(text=True, video=True))
 
-        print(f'Return: {ro.undiscounted_return()}')
+        print(f"Return: {ro.undiscounted_return()}")

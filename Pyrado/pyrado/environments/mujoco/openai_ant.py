@@ -117,8 +117,16 @@ class AntSim(MujocoSimEnv, Serializable):
     def get_nominal_domain_param(cls) -> dict:
         return dict(
             reset_noise_halfspan=0.1,
-            # pole_length=0.6,  # -0.001
-            # half_rail_length=1,
+            init_pos_z=0.75,
+            hip_length=0.2,
+            thigh_length=0.2,
+            tibia_length=0.4,
+            gravity=9.81,
+            friction=0.5,
+            density=1000, # scales linearly with the mass
+            wind_x=0,
+            wind_y=0,
+            wind_z=0,
         )
 
     def _create_task(self, task_args: dict) -> Task:

@@ -59,7 +59,7 @@ if __name__ == "__main__":
     # Load the policy (trained in simulation) and the environment (for constructing the real-world counterpart)
     env_sim, policy, _ = load_experiment(ex_dir, args)
 
-    eval_path = os.path.join(ex_dir,"eval")
+    eval_path = os.path.join(ex_dir, "eval")
     if not os.path.exists(eval_path):
         os.makedirs(eval_path)
 

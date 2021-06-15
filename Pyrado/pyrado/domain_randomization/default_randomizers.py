@@ -595,6 +595,45 @@ def create_default_randomizer_wambic() -> DomainRandomizer:
     )
 
 
+@default_randomizer("pyrado.environments.mujoco.openai_ant", "AntSim")
+def create_default_randomizer_ant(epsilon: float) -> DomainRandomizer:
+    from pyrado.environments.mujoco.openai_ant import AntSim
+
+    dp_nom = AntSim.get_nominal_domain_param()
+    return DomainRandomizer(
+        UniformDomainParam(
+            name="wind_x",
+            mean=dp_nom["wind_x"],
+            halfspan=5 * epsilon,
+        ),
+        UniformDomainParam(
+            name="wind_y",
+            mean=dp_nom["wind_y"],
+            halfspan=5 * epsilon,
+        ),
+        UniformDomainParam(
+            name="wind_z",
+            mean=dp_nom["wind_z"],
+            halfspan=5 * epsilon,
+        ),
+        UniformDomainParam(
+            name="gravity",
+            mean=dp_nom["gravity"],
+            halfspan=0.25 * epsilon * dp_nom["gravity"],
+        ),
+        UniformDomainParam(
+            name="friction",
+            mean=dp_nom["friction"],
+            halfspan=0.3 * epsilon * dp_nom["friction"],
+        ),
+        UniformDomainParam(
+            name="density",
+            mean=dp_nom["density"],
+            halfspan=0.5 * epsilon * dp_nom["density"],
+        ),
+    )
+
+
 def create_default_domain_param_map_bob() -> Dict[int, Tuple[str, str]]:
     """
     Create the default mapping from indices to domain parameters (as used in the `BayRn` algorithm).
