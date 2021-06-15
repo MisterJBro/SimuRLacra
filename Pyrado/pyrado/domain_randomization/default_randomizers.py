@@ -622,9 +622,19 @@ def create_default_randomizer_ant(epsilon: float) -> DomainRandomizer:
             halfspan=0.25 * epsilon * dp_nom["gravity"],
         ),
         UniformDomainParam(
-            name="friction",
-            mean=dp_nom["friction"],
-            halfspan=0.3 * epsilon * dp_nom["friction"],
+            name="sliding_friction",
+            mean=dp_nom["sliding_friction"],
+            halfspan=0.3 * epsilon * dp_nom["sliding_friction"],
+        ),
+        UniformDomainParam(
+            name="torsional_friction",
+            mean=dp_nom["torsional_friction"],
+            halfspan=0.3 * epsilon * dp_nom["torsional_friction"],
+        ),
+        UniformDomainParam(
+            name="rolling_friction",
+            mean=dp_nom["rolling_friction"],
+            halfspan=0.3 * epsilon * dp_nom["rolling_friction"],
         ),
         UniformDomainParam(
             name="density",
@@ -633,6 +643,54 @@ def create_default_randomizer_ant(epsilon: float) -> DomainRandomizer:
         ),
     )
 
+
+@default_randomizer("pyrado.environments.mujoco.openai_ant", "HumanoidSim")
+def create_default_randomizer_humanoid(epsilon: float) -> DomainRandomizer:
+    from pyrado.environments.mujoco.openai_humanoid import HumanoidSim
+
+    dp_nom = HumanoidSim.get_nominal_domain_param()
+    return DomainRandomizer(
+        UniformDomainParam(
+            name="wind_x",
+            mean=dp_nom["wind_x"],
+            halfspan=5 * epsilon,
+        ),
+        UniformDomainParam(
+            name="wind_y",
+            mean=dp_nom["wind_y"],
+            halfspan=5 * epsilon,
+        ),
+        UniformDomainParam(
+            name="wind_z",
+            mean=dp_nom["wind_z"],
+            halfspan=5 * epsilon,
+        ),
+        UniformDomainParam(
+            name="gravity",
+            mean=dp_nom["gravity"],
+            halfspan=0.25 * epsilon * dp_nom["gravity"],
+        ),
+        UniformDomainParam(
+            name="sliding_friction",
+            mean=dp_nom["sliding_friction"],
+            halfspan=0.3 * epsilon * dp_nom["sliding_friction"],
+        ),
+        UniformDomainParam(
+            name="torsional_friction",
+            mean=dp_nom["torsional_friction"],
+            halfspan=0.3 * epsilon * dp_nom["torsional_friction"],
+        ),
+        UniformDomainParam(
+            name="rolling_friction",
+            mean=dp_nom["rolling_friction"],
+            halfspan=0.3 * epsilon * dp_nom["rolling_friction"],
+        ),
+        UniformDomainParam(
+            name="density",
+            mean=dp_nom["density"],
+            halfspan=0.5 * epsilon * dp_nom["density"],
+        ),
+    )
 
 def create_default_domain_param_map_bob() -> Dict[int, Tuple[str, str]]:
     """
