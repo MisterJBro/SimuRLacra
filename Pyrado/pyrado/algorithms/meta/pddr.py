@@ -149,7 +149,7 @@ class PDDR(InterruptableAlgorithm):
                 print(
                     f"You have loaded {len(self.teacher_policies)} teachers. Only the first {self.num_teachers} will be used!"
                 )
-                #self.prune_teachers()
+                # self.prune_teachers()
             assert self.num_teachers == len(self.teacher_policies)
             self.reset_checkpoint()
 
@@ -159,14 +159,22 @@ class PDDR(InterruptableAlgorithm):
         self.optimizer = to.optim.Adam(
             [
                 {"params": self.policy.parameters()},
-                {"params": self._expl_strat.noise.parameters()},
+                # {"params": self._expl_strat.noise.parameters()},
             ],
             lr=lr,
             weight_decay=1e-5,
         )
 
         # Environments
-        self.envs = Envs(self.num_cpu, self.num_teachers, env, min_steps, 0.99, 0.97, env_list=self.teacher_envs)
+        self.envs = Envs(
+            min(self.num_cpu, self.num_teachers),
+            self.num_teachers,
+            env,
+            min_steps,
+            0.99,
+            0.97,
+            env_list=self.teacher_envs,
+        )
 
         # Distillation loss criterion
         self.criterion = to.nn.KLDivLoss(log_target=True, reduction="batchmean")
@@ -211,22 +219,24 @@ class PDDR(InterruptableAlgorithm):
             # Update policy and value function
             self.update()
 
-    def reset_states(self, env_indices = []):
+    def reset_states(self, env_indices=[]):
         """
         Resets the hidden states.
-        :param env_indices: indices of the environment hidden states to reset. If empty, reset all. 
+        :param env_indices: indices of the environment hidden states to reset. If empty, reset all.
         """
         num_env_ind = len(env_indices)
         if self.policy.is_recurrent:
             if num_env_ind == 0:
-                self.hidden_policy = to.zeros(self.num_teachers, self.policy.hidden_size,
-                                    device=self.device).contiguous()
+                self.hidden_policy = to.zeros(
+                    self.num_teachers, self.policy.hidden_size, device=self.device
+                ).contiguous()
             else:
-                self.hidden_policy[env_indices] = to.zeros(num_env_ind, self.policy.hidden_size,
-                                    device=self.device).contiguous()
+                self.hidden_policy[env_indices] = to.zeros(
+                    num_env_ind, self.policy.hidden_size, device=self.device
+                ).contiguous()
 
     def sample(self) -> np.ndarray:
-        """ Sample batch of trajectories for training. """
+        """Sample batch of trajectories for training."""
         obss = self.envs.reset()
         self.reset_states()
 
@@ -259,11 +269,11 @@ class PDDR(InterruptableAlgorithm):
                 start = 0
                 for end in dones[t_idx][1:]:
                     obs_list.append(obs[t_idx, start:end].clone())
-                    lengths.append(end-start)
+                    lengths.append(end - start)
                     start = end
                 if start != self.min_steps:
                     obs_list.append(obs[t_idx, start:].clone())
-                    lengths.append(self.min_steps-start)
+                    lengths.append(self.min_steps - start)
                 obs_pad = to.nn.utils.rnn.pad_sequence(obs_list)
                 obs_pack = to.nn.utils.rnn.pack_padded_sequence(obs_pad, lengths=lengths, enforce_sorted=False)
                 teacher_obs.append(obs_pack)
@@ -279,11 +289,11 @@ class PDDR(InterruptableAlgorithm):
                 start = 0
                 for end in section[1:]:
                     obs_list.append(obs[idx, start:end])
-                    lengths.append(end-start)
+                    lengths.append(end - start)
                     start = end
                 if start != self.min_steps:
                     obs_list.append(obs[idx, start:])
-                    lengths.append(self.min_steps-start)
+                    lengths.append(self.min_steps - start)
             obs = to.nn.utils.rnn.pad_sequence(obs_list)
             obs = to.nn.utils.rnn.pack_padded_sequence(obs, lengths=lengths, enforce_sorted=False)
     
@@ -297,7 +307,7 @@ class PDDR(InterruptableAlgorithm):
 
             # Student actions
             if self.policy.is_recurrent:
-                mean, _ = self.policy.rnn_layers(obs)   
+                mean, _ = self.policy.rnn_layers(obs)
                 mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
                 mean = to.cat([mean[:l, i] for i, l in enumerate(lens)], 0)
 
@@ -313,7 +323,7 @@ class PDDR(InterruptableAlgorithm):
             for t_idx, teacher in enumerate(self.teacher_policies):
                 # Teacher actions
                 if teacher.is_recurrent:
-                    t_out, _ = teacher.rnn_layers(teacher_obs[t_idx])   
+                    t_out, _ = teacher.rnn_layers(teacher_obs[t_idx])
                     t_out, lens = to.nn.utils.rnn.pad_packed_sequence(t_out)
                     t_out = to.cat([t_out[:l, i] for i, l in enumerate(lens)], 0)
 
@@ -375,16 +385,24 @@ class PDDR(InterruptableAlgorithm):
         super().__setstate__(state)
 
         # Recover settings of environment
-        #self.teacher_policies = []
-        #self.teacher_expl_strats = []
-        #for dir in state["teacher_ex_dirs"][:16]:
+        # self.teacher_policies = []
+        # self.teacher_expl_strats = []
+        # for dir in state["teacher_ex_dirs"][:16]:
         #    dir = os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/")+len("/data/temp/"):])
 
         #    _, teacher_policy, teacher_extra = load_experiment(dir)
         #    self.teacher_policies.append(teacher_policy)
         #    self.teacher_expl_strats.append(teacher_extra["expl_strat"])
-        
-        self.envs = Envs(state["num_cpu"], state["num_teachers"], state["env_real"], state["min_steps"], 0.99, 0.97, env_list=state["teacher_envs"])
+
+        self.envs = Envs(
+            state["num_cpu"],
+            state["num_teachers"],
+            state["env_real"],
+            state["min_steps"],
+            0.99,
+            0.97,
+            env_list=state["teacher_envs"],
+        )
 
     def set_random_envs(self):
         """Creates random environments of the given type."""
@@ -403,7 +421,7 @@ class PDDR(InterruptableAlgorithm):
         :param snapshot_mode: determines when the snapshots are stored (e.g. on every iteration or on new high-score)
         :param seed: seed value for the random number generators, pass `None` for no seeding
         """
-        
+
         self.teacher_policies = []
         self.teacher_expl_strats = []
         self.teacher_critics = []
@@ -438,11 +456,11 @@ class PDDR(InterruptableAlgorithm):
     def load_teacher_experiment(self, exp: Experiment):
         """
         Load teachers from PDDRTeachers experiment.
-        
+
         :param exp: the teacher's experiment object
         """
         _, _, extra = load_experiment(exp)
-        
+
         self.unpack_teachers(extra)
 
     def unpack_teachers(self, extra: dict):
@@ -452,9 +470,9 @@ class PDDR(InterruptableAlgorithm):
         :param extra: dict with teacher data
         """
         num_teachers_to_load = self.num_teachers - len(self.teacher_policies)
-        self.teacher_ex_dirs.extend(extra["teacher_ex_dirs"][: num_teachers_to_load])
+        self.teacher_ex_dirs.extend(extra["teacher_ex_dirs"][:num_teachers_to_load])
         for dir in self.teacher_ex_dirs:
-            dir = os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/")+len("/data/temp/"):])
+            dir = os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/") + len("/data/temp/") :])
             teacher_env, teacher_policy, teacher_extra = load_experiment(dir)
             self.teacher_envs.append(teacher_env)
             self.teacher_policies.append(teacher_policy)

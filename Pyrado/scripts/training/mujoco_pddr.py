@@ -27,37 +27,34 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 """
-Train an agent to solve the Quanser Qube swing-up task using Policy Distillation with Domain Randomization.
-
-.. note::
-    Call with defining --max_steps.
+Train an agent to solve mujoco environments using PDDR.
 """
 import torch as to
-import multiprocessing as mp
 
 import pyrado
 from pyrado.algorithms.meta.pddr import PDDR
 from pyrado.algorithms.step_based.ppo_gae import PPOGAE
-from pyrado.domain_randomization.default_randomizers import create_default_randomizer
 from pyrado.environment_wrappers.action_normalization import ActNormWrapper
+from pyrado.environments.mujoco.openai_ant import AntSim
+from pyrado.utils.data_types import EnvSpec
+import multiprocessing as mp
+
+from pyrado.domain_randomization.default_randomizers import create_default_randomizer
 from pyrado.environment_wrappers.domain_randomization import DomainRandWrapperLive
-from pyrado.environments.pysim.quanser_qube import QQubeSwingUpSim
 from pyrado.logger.experiment import save_dicts_to_yaml, setup_experiment
 from pyrado.policies.recurrent.rnn import LSTMPolicy
-from pyrado.policies.feed_back.fnn import FNNPolicy
-from pyrado.policies.special.environment_specific import QQubeSwingUpAndBalanceCtrl
 from pyrado.spaces import ValueFunctionSpace
 from pyrado.utils.argparser import get_argparser
-from pyrado.utils.data_types import EnvSpec
 from multiprocessing import freeze_support
 
 parser = get_argparser()
-parser.add_argument("--freq", type=int, default=250)
 parser.add_argument("--max_iter_teacher", type=int, default=200)
 parser.add_argument("--train_teachers", action="store_true", default=False)
 parser.add_argument("--num_teachers", type=int, default=2)
 parser.add_argument("--max_iter", type=int, default=500)
 parser.add_argument("--num_epochs", type=int, default=250)
+parser.add_argument("--epsilon", type=float, default=0.2)
+
 
 if __name__ == "__main__":
     # For multiprocessing and float32 support, recommended to include at top of script
@@ -70,12 +67,15 @@ if __name__ == "__main__":
     # Set seed if desired
     pyrado.set_seed(args.seed, verbose=True)
     use_cuda = args.device == "cuda"
-    descr = f"_{args.max_steps}st_{args.freq}Hz_{args.num_teachers}t_{LSTMPolicy.name}"
+    descr = f"_{args.max_steps}st__{args.num_teachers}t_{LSTMPolicy.name}"
 
-    # Environment
-    env_hparams = dict(dt=1 / args.freq, max_steps=args.max_steps)
-    env_real = QQubeSwingUpSim(**env_hparams)
-    ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PDDR.name}{descr}")
+    env_hparams = dict(max_steps=args.max_steps)
+
+    # Experiment (set seed before creating the modules)
+    if args.env_name == "ant":
+        # Environment
+        env_real = AntSim(**env_hparams)
+        ex_dir = setup_experiment(AntSim.name, f"{PDDR.name}{descr}")
 
     if args.train_teachers:
         # Teacher Policy
@@ -98,8 +98,8 @@ if __name__ == "__main__":
             traj_len=args.max_steps,
             gamma=0.99,
             lam=0.97,
-            env_num=30,
-            cpu_num=12,  # int(mp.cpu_count()*2),
+            env_num=mp.cpu_count(),
+            cpu_num=int(mp.cpu_count() * 2),
             epoch_num=40,
             device=args.device,
             max_kl=0.05,
@@ -117,7 +117,7 @@ if __name__ == "__main__":
         teacher_algo_hparam = None
 
     # Wrapper
-    randomizer = create_default_randomizer(env_real)
+    randomizer = create_default_randomizer(env=env_real, randomizer_args={"epsilon": args.epsilon})
     env_real = DomainRandWrapperLive(env_real, randomizer)
     env_real = ActNormWrapper(env_real)
 
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     algo_hparam = dict(
         max_iter=args.max_iter,
         min_steps=args.max_steps,
-        num_cpu=20,  # int(mp.cpu_count()/2),
+        num_cpu=int(mp.cpu_count() / 2),
         std_init=0.1,
         num_epochs=args.num_epochs,
         num_teachers=args.num_teachers,
@@ -137,6 +137,7 @@ if __name__ == "__main__":
         teacher_policy=teacher_policy,
         teacher_algo=teacher_algo,
         teacher_algo_hparam=teacher_algo_hparam,
+        randomizer=randomizer,
     )
 
     algo = PDDR(ex_dir, env_real, policy, **algo_hparam)

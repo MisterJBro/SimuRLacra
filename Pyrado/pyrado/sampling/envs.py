@@ -6,12 +6,15 @@ from pyrado.sampling.env_worker import Worker
 from pyrado.environments.base import Env
 from typing import List
 
+
 class Envs:
     """
     Central instance to manage all environment workers. Gives them commands in parallel.
     """
 
-    def __init__(self, cpu_num: int, env_num: int, env: Env, game_len: int, gamma: float, lam: float, env_list: List = []):
+    def __init__(
+        self, cpu_num: int, env_num: int, env: Env, game_len: int, gamma: float, lam: float, env_list: List = []
+    ):
         """
         Constructor
         :param cpu_num: number of used cpu cores
@@ -36,7 +39,12 @@ class Envs:
         self.env_num_worker = int(env_num / cpu_num)
         self.rest_env_num = (env_num % cpu_num) + self.env_num_worker
         self.workers = [
-            Worker(env_list[i] if len(env_list) == cpu_num else env, self.channels[i][1], i, self.rest_env_num if i == cpu_num - 1 else self.env_num_worker)
+            Worker(
+                env_list[i] if len(env_list) == cpu_num else env,
+                self.channels[i][1],
+                i,
+                self.rest_env_num if i == cpu_num - 1 else self.env_num_worker,
+            )
             for i in range(cpu_num)
         ]
         [w.start() for w in self.workers]
@@ -45,7 +53,7 @@ class Envs:
         self.obss = None
 
     def reset(self):
-        """ Resets all workers. """
+        """Resets all workers."""
         self.buf.reset()
         [c[0].send(["reset", None]) for c in self.channels]
         msg = [c[0].recv() for c in self.channels]
@@ -92,11 +100,11 @@ class Envs:
         return n_obss, done_ind
 
     def close(self):
-        """ Closes all workers and their environments. """
+        """Closes all workers and their environments."""
         [c[0].send(["close", None]) for c in self.channels]
 
     def ret_and_adv(self) -> [np.ndarray, np.ndarray]:
-        """ Calculates the return and advantages in the buffer. """
+        """Calculates the return and advantages in the buffer."""
         self.buf.ret_and_adv()
         rews = self.buf.get_rews()
         rets = np.array([np.sum(r) for r in rews])
