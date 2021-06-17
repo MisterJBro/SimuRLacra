@@ -68,11 +68,12 @@ def default_randomizer(env_module, env_class):
     return register
 
 
-def create_default_randomizer(env: Union[SimEnv, EnvWrapper]) -> DomainRandomizer:
+def create_default_randomizer(env: Union[SimEnv, EnvWrapper], randomizer_args: dict() = None) -> DomainRandomizer:
     """
     Create the default randomizer depending on the passed environment.
 
     :param env: (wrapped) environment that should be perturbed
+    :param randomizer_args: paramters for the specific default_randomizer
     :return: default randomizer
     """
     env_type = type(inner_env(env))
@@ -84,7 +85,7 @@ def create_default_randomizer(env: Union[SimEnv, EnvWrapper]) -> DomainRandomize
         # Try to get it
         dp = default_randomizer_registry.get((env_module, env_class))
         if dp:
-            return dp()
+            return dp(**randomizer_args)
     else:
         raise pyrado.ValueErr(msg=f"No default randomizer settings for env of type {env_type}!")
 
@@ -691,6 +692,7 @@ def create_default_randomizer_humanoid(epsilon: float) -> DomainRandomizer:
             halfspan=0.5 * epsilon * dp_nom["density"],
         ),
     )
+
 
 def create_default_domain_param_map_bob() -> Dict[int, Tuple[str, str]]:
     """

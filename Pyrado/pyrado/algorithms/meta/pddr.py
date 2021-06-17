@@ -164,14 +164,22 @@ class PDDR(InterruptableAlgorithm):
         self.optimizer = to.optim.Adam(
             [
                 {"params": self.policy.parameters()},
-                {"params": self._expl_strat.noise.parameters()},
+                # {"params": self._expl_strat.noise.parameters()},
             ],
             lr=lr,
             weight_decay=1e-5,
         )
 
         # Environments
-        self.envs = Envs(self.num_cpu, self.num_teachers, env, min_steps, 0.99, 0.97, env_list=self.teacher_envs)
+        self.envs = Envs(
+            min(self.num_cpu, self.num_teachers),
+            self.num_teachers,
+            env,
+            min_steps,
+            0.99,
+            0.97,
+            env_list=self.teacher_envs,
+        )
 
         # Distillation loss criterion
         self.criterion = to.nn.KLDivLoss(log_target=True, reduction="batchmean")
