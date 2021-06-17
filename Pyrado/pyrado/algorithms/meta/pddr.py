@@ -28,11 +28,9 @@
 
 import os
 from copy import deepcopy
-from typing import Any, List, Tuple
 
 import numpy as np
 import torch as to
-import multiprocessing as mp
 
 import pyrado
 from pyrado.algorithms.base import Algorithm, InterruptableAlgorithm
@@ -43,10 +41,7 @@ from pyrado.exploration.stochastic_action import NormalActNoiseExplStrat
 from pyrado.logger.experiment import Experiment, ask_for_experiment
 from pyrado.logger.step import StepLogger
 from pyrado.policies.base import Policy
-from pyrado.sampling.parallel_rollout_sampler import ParallelRolloutSampler
-from pyrado.sampling.step_sequence import StepSequence
 from pyrado.utils.experiments import load_experiment
-from pyrado.utils.input_output import print_cbt
 from pyrado.sampling.envs import Envs
 
 
@@ -252,7 +247,7 @@ class PDDR(InterruptableAlgorithm):
 
     def update(self):
         """Update the policy's (and value functions') parameters based on the collected rollout data."""
-        obs, act, rew, ret, adv, dones = self.envs.get_data(self.device)
+        obs, _, _, _, _, dones = self.envs.get_data(self.device)
         obs = obs.reshape(self.num_teachers, self.min_steps, -1)
 
         # Teacher observation
@@ -292,6 +287,10 @@ class PDDR(InterruptableAlgorithm):
             obs = to.nn.utils.rnn.pad_sequence(obs_list)
             obs = to.nn.utils.rnn.pack_padded_sequence(obs, lengths=lengths, enforce_sorted=False)
     
+        # Set teacher into training mode
+        for t_idx, teacher in enumerate(self.teacher_policies):
+            teacher.train()
+
         # Train student
         for epoch in range(self.num_epochs):
             self.optimizer.zero_grad()
@@ -330,7 +329,13 @@ class PDDR(InterruptableAlgorithm):
                 s_act = s_dist.sample()
                 t_dist = self.teacher_expl_strats[t_idx].action_dist_at(t_out)
 
-                l = self.criterion(t_dist.log_prob(s_act), s_dist.log_prob(s_act))
+                # Different losses
+                on_policy = self.criterion(t_dist.log_prob(s_act), s_dist.log_prob(s_act))  
+                exp_entr_reg = self.criterion(s_dist.log_prob(s_act), t_dist.log_prob(s_act))
+                
+                #exp_entr_reg -= s_dist.log_prob(s_act) * t_dist.log_prob(s_act)
+
+                l = on_policy
                 loss += l
             if epoch % 50 == 0:
                 print(f"Epoch {epoch} Loss: {loss.item()}")
