@@ -37,7 +37,7 @@
 #SBATCH --cpus-per-task 8
 ## Leave this if you want to use a GPU per job. Remove it if you do not need it.
 #SBATCH --gres=gpu:rtx2080:1
-#SBATCH -C avx
+##SBATCH -C avx
 #SBATCH --mem-per-cpu=2048
 #SBATCH -o /home/muratore/Software/SimuRLacra-pddr/remotelaunch/logs/%A_%a-out.txt
 #SBATCH -e /home/muratore/Software/SimuRLacra-pddr/remotelaunch/logs/%A_%a-err.txt

@@ -37,6 +37,8 @@ if __name__ == "__main__":
     # Environment
     env_hparams = dict(dt=1 / 250.0, max_steps=4000)
     env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
+    
+    print(to.cuda.is_available())
 
     # Policy
     policy_hparam = dict(hidden_size=64, num_recurrent_layers=1)
