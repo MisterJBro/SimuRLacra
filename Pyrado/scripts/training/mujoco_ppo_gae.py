@@ -30,9 +30,6 @@ if __name__ == "__main__":
     # Parse command line arguments
     args = get_argparser().parse_args()
 
-    # Experiment (set seed before creating the modules)
-    ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PPOGAE.name}_{FNNPolicy.name}", f"250Hz_seed_{args.seed}")
-
     # Set seed if desired
     pyrado.set_seed(args.seed, verbose=True) 
     use_cuda = args.device == "cuda"
@@ -44,15 +41,9 @@ if __name__ == "__main__":
     if args.env_name == "ant":
         # Environment
         env = AntSim(**env_hparams)
-        ex_dir = setup_experiment(AntSim.name, f"{PDDR.name}{descr}")
+        ex_dir = setup_experiment(AntSim.name, f"{PPOGAE.name}")
 
     env = ActNormWrapper(env)
-    
-    # Print extra information about GPU
-    print('CUDA AVAILABLE', to.cuda.is_available())
-    import GPUtil
-    for gpu in GPUtil.getGPUs():
-        print('FOUND GPU: ', gpu.name, ' with LOAD: ', gpu.load*100)
 
     # Policy
     policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
@@ -78,7 +69,7 @@ if __name__ == "__main__":
         traj_len=args.max_steps,
         gamma=0.99,
         lam=0.97,
-        env_num=32,
+        env_num=16,
         cpu_num=args.num_cpus,
         epoch_num=40,
         device=args.device,
