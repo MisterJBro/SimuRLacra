@@ -28,7 +28,7 @@
 
 ###############################################################################
 ## SLURM Configurations
-#SBATCH --job-name pddr_ppo_gae
+#SBATCH --job-name mujoco_ant_ppo
 #SBATCH --array 0-0
 #SBATCH --time 72:00:00
 ## Always leave ntasks value to 1. This is only used for MPI, which is not supported now.
@@ -56,4 +56,4 @@ cd "$SCRIPTS_DIR"
 
 # Run python scripts with provided command line arguments
 cd "training/"
-python qq-su_ppo_gae.py
+python mujoco_ppo_gae.py --device 'cuda' --max_steps 4000 --num_cpus 8 --env_name ant

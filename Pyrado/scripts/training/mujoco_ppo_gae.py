@@ -8,7 +8,7 @@ import pyrado
 from pyrado.algorithms.step_based.ppo_gae import PPOGAE
 from pyrado.environment_wrappers.action_normalization import ActNormWrapper
 from pyrado.environment_wrappers.observation_normalization import ObsNormWrapper
-from pyrado.environments.pysim.quanser_qube import QQubeSwingUpSim
+from pyrado.environments.mujoco.openai_ant import AntSim
 from pyrado.utils.data_types import RenderMode
 from pyrado.policies.recurrent.rnn import LSTMPolicy
 from pyrado.policies.feed_back.fnn import FNNPolicy
@@ -37,9 +37,16 @@ if __name__ == "__main__":
     pyrado.set_seed(args.seed, verbose=True) 
     use_cuda = args.device == "cuda"
  
-    # Environment
-    env_hparams = dict(dt=1 / 250.0, max_steps=4000)
-    env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
+    # Environments
+    env_hparams = dict(max_steps=args.max_steps)
+
+    # Experiment (set seed before creating the modules)
+    if args.env_name == "ant":
+        # Environment
+        env = AntSim(**env_hparams)
+        ex_dir = setup_experiment(AntSim.name, f"{PDDR.name}{descr}")
+
+    env = ActNormWrapper(env)
     
     # Print extra information about GPU
     print('CUDA AVAILABLE', to.cuda.is_available())
@@ -63,10 +70,6 @@ if __name__ == "__main__":
     critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
     #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
     #critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
-
-    #ex_dir2 = ask_for_experiment()
-    #env, policy, extra = load_experiment(ex_dir2)
-    #critic = extra["vfcn"]
 
     # Subroutine
     algo_hparam = dict(
