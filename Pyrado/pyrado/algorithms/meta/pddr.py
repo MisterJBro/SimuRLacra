@@ -28,11 +28,9 @@
 
 import os
 from copy import deepcopy
-from typing import Any, List, Tuple
 
 import numpy as np
 import torch as to
-import multiprocessing as mp
 
 import pyrado
 from pyrado.algorithms.base import Algorithm, InterruptableAlgorithm
@@ -43,10 +41,8 @@ from pyrado.exploration.stochastic_action import NormalActNoiseExplStrat
 from pyrado.logger.experiment import Experiment, ask_for_experiment
 from pyrado.logger.step import StepLogger
 from pyrado.policies.base import Policy
-from pyrado.sampling.parallel_rollout_sampler import ParallelRolloutSampler
-from pyrado.sampling.step_sequence import StepSequence
 from pyrado.utils.experiments import load_experiment
-from pyrado.utils.input_output import print_cbt
+from pyrado.sampling.envs import Envs
 
 
 class PDDR(InterruptableAlgorithm):
@@ -62,8 +58,8 @@ class PDDR(InterruptableAlgorithm):
         logger: StepLogger = None,
         device: str = "cpu",
         lr: float = 5e-4,
-        std_init: float = 0.15,
-        min_steps: int = 1500,
+        std_init: float = 0.1,
+        min_steps: int = 4000,
         num_epochs: int = 10,
         max_iter: int = 500,
         num_teachers: int = 8,
@@ -113,7 +109,11 @@ class PDDR(InterruptableAlgorithm):
         self.num_cpu = num_cpu
         self.device = device
         self.env_real = env
+        self.max_iter = max_iter
 
+        self.teacher_algo = teacher_algo
+        self.teacher_algo_hparam = teacher_algo_hparam
+        self.teacher_policy = teacher_policy
         self.teacher_policies = []
         self.teacher_envs = []
         self.teacher_expl_strats = []
@@ -139,18 +139,6 @@ class PDDR(InterruptableAlgorithm):
             self.teacher_ex_dirs = [os.path.join(self.save_dir, f"teacher_{idx}") for idx in range(self.num_teachers)]
             for idx in range(self.num_teachers):
                 os.makedirs(self.teacher_ex_dirs[idx], exist_ok=True)
-
-            # Create teacher algos
-            self.algos = [
-                teacher_algo(
-                    save_dir=self.teacher_ex_dirs[idx],
-                    env=self.teacher_envs[idx],
-                    policy=deepcopy(teacher_policy),
-                    logger=None,
-                    **deepcopy(teacher_algo_hparam),
-                )
-                for idx in range(self.num_teachers)
-            ]
         elif teacher_extra is not None:
             self.unpack_teachers(teacher_extra)
             assert self.num_teachers == len(self.teacher_policies)
@@ -161,24 +149,32 @@ class PDDR(InterruptableAlgorithm):
                 print(
                     f"You have loaded {len(self.teacher_policies)} teachers. Only the first {self.num_teachers} will be used!"
                 )
-                self.prune_teachers()
+                # self.prune_teachers()
             assert self.num_teachers == len(self.teacher_policies)
             self.reset_checkpoint()
 
         # Student
         self._expl_strat = NormalActNoiseExplStrat(self._policy, std_init=std_init)
         self._policy = self._policy.to(self.device)
-        self.optimizer = to.optim.Adam([{"params": self.policy.parameters()}], lr=lr)
+        self.optimizer = to.optim.Adam(
+            [
+                {"params": self.policy.parameters()},
+                # {"params": self._expl_strat.noise.parameters()},
+            ],
+            lr=lr,
+            weight_decay=1e-5,
+        )
 
         # Environments
-        self.sampler = ParallelRolloutSampler(
-                self.teacher_envs[0],
-                self._expl_strat,
-                num_workers=self.num_cpu,
-                min_steps=self.min_steps,
-            )
-
-        self.teacher_weights = np.ones(self.num_teachers)
+        self.envs = Envs(
+            min(self.num_cpu, self.num_teachers),
+            self.num_teachers,
+            env,
+            min_steps,
+            0.99,
+            0.97,
+            env_list=self.teacher_envs,
+        )
 
         # Distillation loss criterion
         self.criterion = to.nn.KLDivLoss(log_target=True, reduction="batchmean")
@@ -204,8 +200,8 @@ class PDDR(InterruptableAlgorithm):
             self.reached_checkpoint()  # setting counter to 0
 
         if self.curr_checkpoint == 0:
-            # Sample observations
-            ros, rets, all_lengths = self.sample()
+            # Sample batch
+            rets, all_lengths = self.sample()
 
             # Log current progress
             self.logger.add_value("max return", np.max(rets), 4)
@@ -221,49 +217,138 @@ class PDDR(InterruptableAlgorithm):
             self.make_snapshot(snapshot_mode, np.mean(rets), meta_info)
 
             # Update policy and value function
-            self.update(rollouts=ros)
+            self.update()
 
-    def sample(self) -> Tuple[List[List[StepSequence]], np.array, np.array]:
+    def reset_states(self, env_indices=[]):
         """
-        Samples observations from several samplers.
-
-        :return: list of rollouts per sampler, list of all returns, list of all rollout lengths
+        Resets the hidden states.
+        :param env_indices: indices of the environment hidden states to reset. If empty, reset all.
         """
-        ros = []
-        rets = []
-        all_lengths = []
-        for t in range(self.num_teachers):
-            self.sampler.reinit(self.teacher_envs[t], self.teacher_expl_strats[t])
-            samples = self.sampler.sample()
-            ros.append(samples)
-            rets.extend([sample.undiscounted_return() for sample in samples])
-            all_lengths.extend([sample.length for sample in samples])
+        num_env_ind = len(env_indices)
+        if self.policy.is_recurrent:
+            if num_env_ind == 0:
+                self.hidden_policy = to.zeros(
+                    self.num_teachers, self.policy.hidden_size, device=self.device
+                ).contiguous()
+            else:
+                self.hidden_policy[env_indices] = to.zeros(
+                    num_env_ind, self.policy.hidden_size, device=self.device
+                ).contiguous()
 
-        return ros, np.array(rets), np.array(all_lengths)
+    def sample(self) -> np.ndarray:
+        """Sample batch of trajectories for training."""
+        obss = self.envs.reset()
+        self.reset_states()
 
-    def update(self, *args: Any, **kwargs: Any):
+        for _ in range(self.min_steps):
+            obss = to.as_tensor(obss).to(self.device)
+            with to.no_grad():
+                if self.expl_strat.is_recurrent:
+                    acts, self.hidden_policy = self.expl_strat(obss, self.hidden_policy.contiguous())
+                else:
+                    acts = self.expl_strat(obss)
+                acts = acts.cpu().numpy()
+            obss, done_ind = self.envs.step(acts, np.zeros_like(acts).reshape(-1))
+            if len(done_ind) != 0:
+                self.reset_states(done_ind)
+
+        rets = self.envs.ret_and_adv()
+        return rets
+
+    def update(self):
         """Update the policy's (and value functions') parameters based on the collected rollout data."""
-        obss = []
-        losses = []
-        for t in range(self.num_teachers):
-            concat_ros = StepSequence.concat(kwargs["rollouts"][t])
-            concat_ros.torch(data_type=to.get_default_dtype())
-            obss.append(concat_ros.get_data_values("observations")[: self.min_steps])
+        obs, _, _, _, _, dones = self.envs.get_data(self.device)
+        obs = obs.reshape(self.num_teachers, self.min_steps, -1)
+
+        # Teacher observation
+        teacher_obs = []
+        for t_idx, teacher in enumerate(self.teacher_policies):
+            if teacher.is_recurrent:
+                obs_list = []
+                lengths = []
+                start = 0
+                for end in dones[t_idx][1:]:
+                    obs_list.append(obs[t_idx, start:end].clone())
+                    lengths.append(end - start)
+                    start = end
+                if start != self.min_steps:
+                    obs_list.append(obs[t_idx, start:].clone())
+                    lengths.append(self.min_steps - start)
+                obs_pad = to.nn.utils.rnn.pad_sequence(obs_list)
+                obs_pack = to.nn.utils.rnn.pack_padded_sequence(obs_pad, lengths=lengths, enforce_sorted=False)
+                teacher_obs.append(obs_pack)
+            else:
+                teacher_obs.append(obs[t_idx].clone())
+
+        # For recurrent pack observations
+        if self.policy.is_recurrent:
+            obs = obs.reshape(-1, self.min_steps, obs.shape[-1])
+            obs_list = []
+            lengths = []
+            for idx, section in enumerate(dones):
+                start = 0
+                for end in section[1:]:
+                    obs_list.append(obs[idx, start:end])
+                    lengths.append(end - start)
+                    start = end
+                if start != self.min_steps:
+                    obs_list.append(obs[idx, start:])
+                    lengths.append(self.min_steps - start)
+            obs = to.nn.utils.rnn.pad_sequence(obs_list)
+            obs = to.nn.utils.rnn.pack_padded_sequence(obs, lengths=lengths, enforce_sorted=False)
+    
+        # Set teacher into training mode
+        for t_idx, teacher in enumerate(self.teacher_policies):
+            teacher.train()
 
         # Train student
         for epoch in range(self.num_epochs):
             self.optimizer.zero_grad()
 
+            # Student actions
+            if self.policy.is_recurrent:
+                mean, _ = self.policy.rnn_layers(obs)
+                mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
+                mean = to.cat([mean[:l, i] for i, l in enumerate(lens)], 0)
+
+                mean = self.policy.output_layer(mean)
+                if self.policy.output_nonlin is not None:
+                    mean = self.policy.output_nonlin(mean)
+            else:
+                mean = self.policy(obs)
+            mean = mean.reshape(self.num_teachers, self.min_steps)
+
+            # Iterate over all teachers
             loss = 0
             for t_idx, teacher in enumerate(self.teacher_policies):
-                s_dist = self.expl_strat.action_dist_at(self.policy(obss[t_idx]))
-                s_act = s_dist.sample()
-                t_dist = self.teacher_expl_strats[t_idx].action_dist_at(teacher(obss[t_idx]))
+                # Teacher actions
+                if teacher.is_recurrent:
+                    t_out, _ = teacher.rnn_layers(teacher_obs[t_idx])
+                    t_out, lens = to.nn.utils.rnn.pad_packed_sequence(t_out)
+                    t_out = to.cat([t_out[:l, i] for i, l in enumerate(lens)], 0)
 
-                l = self.teacher_weights[t_idx] * self.criterion(t_dist.log_prob(s_act), s_dist.log_prob(s_act))
+                    t_out = teacher.output_layer(t_out)
+                    if teacher.output_nonlin is not None:
+                        t_out = teacher.output_nonlin(t_out)
+                else:
+                    t_out = teacher(obs)
+                t_out = t_out.reshape(-1)
+
+                # Get distributions
+                s_dist = self.expl_strat.action_dist_at(mean[t_idx])
+                s_act = s_dist.sample()
+                t_dist = self.teacher_expl_strats[t_idx].action_dist_at(t_out)
+
+                # Different losses
+                on_policy = self.criterion(t_dist.log_prob(s_act), s_dist.log_prob(s_act))  
+                exp_entr_reg = self.criterion(s_dist.log_prob(s_act), t_dist.log_prob(s_act))
+                
+                #exp_entr_reg -= s_dist.log_prob(s_act) * t_dist.log_prob(s_act)
+
+                l = on_policy
                 loss += l
-                losses.append([t_idx, l.item()])
-            print(f"Epoch {epoch} Loss: {loss.item()}")
+            if epoch % 50 == 0:
+                print(f"Epoch {epoch} Loss: {loss.item()}")
             loss.backward()
             self.optimizer.step()
 
@@ -276,15 +361,48 @@ class PDDR(InterruptableAlgorithm):
             # This algorithm instance is not a subroutine of another algorithm
             pyrado.save(self.env_real, "env.pkl", self.save_dir)
 
-    def _train_teacher(self, idx: int, snapshot_mode: str = "latest", seed: int = None):
-        """
-        Wrapper for use of multiprocessing: Trains one teacher.
+    def __getstate__(self):
+        # Remove the unpickleable elements from this algorithm instance
+        tmp_teacher_policies = self.__dict__.pop("teacher_policies")
+        tmp_teacher_algo = self.__dict__.pop("teacher_algo")
+        tmp_envs = self.__dict__.pop("envs")
 
-        :param idx: index of the teacher to be trained
-        :param snapshot_mode: determines when the snapshots are stored (e.g. on every iteration or on new high-score)
-        :param seed: seed value for the random number generators, pass `None` for no seeding
-        """
-        self.algos[idx].train(snapshot_mode=snapshot_mode, seed=seed)
+        # Call Algorithm's __getstate__() without the unpickleable elements
+        state_dict = super(PDDR, self).__getstate__()
+
+        # Make a deep copy of the state dict such that we can return the pickleable version
+        state_dict_copy = deepcopy(state_dict)
+
+        # Insert them back
+        self.__dict__["teacher_policies"] = tmp_teacher_policies
+        self.__dict__["teacher_algo"] = tmp_teacher_algo
+        self.__dict__["envs"] = tmp_envs
+
+        return state_dict_copy
+
+    def __setstate__(self, state):
+        # Call Algorithm's __setstate__()
+        super().__setstate__(state)
+
+        # Recover settings of environment
+        # self.teacher_policies = []
+        # self.teacher_expl_strats = []
+        # for dir in state["teacher_ex_dirs"][:16]:
+        #    dir = os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/")+len("/data/temp/"):])
+
+        #    _, teacher_policy, teacher_extra = load_experiment(dir)
+        #    self.teacher_policies.append(teacher_policy)
+        #    self.teacher_expl_strats.append(teacher_extra["expl_strat"])
+
+        self.envs = Envs(
+            state["num_cpu"],
+            state["num_teachers"],
+            state["env_real"],
+            state["min_steps"],
+            0.99,
+            0.97,
+            env_list=state["teacher_envs"],
+        )
 
     def set_random_envs(self):
         """Creates random environments of the given type."""
@@ -303,14 +421,26 @@ class PDDR(InterruptableAlgorithm):
         :param snapshot_mode: determines when the snapshots are stored (e.g. on every iteration or on new high-score)
         :param seed: seed value for the random number generators, pass `None` for no seeding
         """
-        a_pool = mp.pool.ThreadPool(processes=8)
-        a_pool.starmap_async(self._train_teacher, [(idx, snapshot_mode, seed) for idx in range(self.num_teachers)])
-        a_pool.close()
-        a_pool.join()
 
-        self.teacher_policies = [a.policy for a in self.algos]
-        self.teacher_expl_strats = [a.expl_strat for a in self.algos]
-        self.teacher_critics = [a.critic for a in self.algos]
+        self.teacher_policies = []
+        self.teacher_expl_strats = []
+        self.teacher_critics = []
+
+        for idx in range(self.num_teachers):
+            algo = self.teacher_algo(
+                save_dir=self.teacher_ex_dirs[idx],
+                env=self.teacher_envs[idx],
+                policy=deepcopy(self.teacher_policy),
+                logger=None,
+                **deepcopy(self.teacher_algo_hparam),
+            )
+
+            algo.train(snapshot_mode, seed)
+            self.teacher_policies.append(deepcopy(algo.policy))
+            self.teacher_expl_strats.append(deepcopy(algo.expl_strat))
+            self.teacher_critics.append(deepcopy(algo.critic))
+
+            del algo
 
     def load_teachers(self):
         """Recursively load all teachers that can be found in the current experiment's directory."""
@@ -326,10 +456,11 @@ class PDDR(InterruptableAlgorithm):
     def load_teacher_experiment(self, exp: Experiment):
         """
         Load teachers from PDDRTeachers experiment.
-        
+
         :param exp: the teacher's experiment object
         """
         _, _, extra = load_experiment(exp)
+
         self.unpack_teachers(extra)
 
     def unpack_teachers(self, extra: dict):
@@ -338,11 +469,14 @@ class PDDR(InterruptableAlgorithm):
 
         :param extra: dict with teacher data
         """
-        self.teacher_policies.extend(extra["teacher_policies"])
-        self.teacher_envs.extend(extra["teacher_envs"])
-        self.teacher_expl_strats.extend(extra["teacher_expl_strats"])
-        self.teacher_critics.extend(extra["teacher_critics"])
-        self.teacher_ex_dirs.extend(extra["teacher_ex_dirs"])
+        num_teachers_to_load = self.num_teachers - len(self.teacher_policies)
+        self.teacher_ex_dirs.extend(extra["teacher_ex_dirs"][:num_teachers_to_load])
+        for dir in self.teacher_ex_dirs:
+            dir = os.path.join(pyrado.TEMP_DIR, dir[dir.find("/data/temp/") + len("/data/temp/") :])
+            teacher_env, teacher_policy, teacher_extra = load_experiment(dir)
+            self.teacher_envs.append(teacher_env)
+            self.teacher_policies.append(teacher_policy)
+            self.teacher_expl_strats.append(teacher_extra["expl_strat"])
 
     def prune_teachers(self):
         """Prune teachers to only use the first num_teachers of them."""

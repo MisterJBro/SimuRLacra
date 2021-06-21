@@ -2,10 +2,10 @@
     <compiler angle="degree" inertiafromgeom="true"/>
     <default>
         <joint armature="1" damping="1" limited="true"/>
-        <geom conaffinity="1" condim="1" contype="1" margin="0.001" material="geom" rgba="0.8 0.6 .4 1"/>
+        <geom conaffinity="1" condim="1" contype="1" margin="0.001" material="geom" rgba="0.8 0.6 .4 1" density="[density]" friction="[sliding_friction] [torsional_friction] [rolling_friction]"/>
         <motor ctrllimited="true" ctrlrange="-.4 .4"/>
     </default>
-    <option integrator="RK4" iterations="50" solver="PGS" timestep="0.003">
+    <option integrator="RK4" iterations="50" solver="PGS" timestep="0.003" gravity="0 0 -[gravity]" wind="[wind_x] [wind_y] [wind_z]">
         <!-- <flags solverstat="enable" energy="enable"/>-->
     </option>
     <size nkey="5" nuser_geom="1"/>

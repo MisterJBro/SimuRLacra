@@ -5,6 +5,7 @@ import os
 import numpy as np
 import pyrado
 import torch as to
+from torch.optim.lr_scheduler import StepLR
 from copy import deepcopy
 
 from pyrado.algorithms.base import Algorithm
@@ -112,7 +113,10 @@ class PPOGAE(Algorithm):
                 {"params": self.critic.parameters()},
             ],
             lr=lr,
+            weight_decay=1e-5,
         )
+        self.scheduler = StepLR(self.optimizer, step_size=1, gamma=0.3)
+        self.lower_lr = True
         self.criterion = to.nn.SmoothL1Loss()
         self.reset_states()
 
@@ -122,26 +126,26 @@ class PPOGAE(Algorithm):
         print("Algorithm:          ", self.name)
         print("CPU count:          ", self.cpu_num)
 
-    def reset_states(self, env_indices = []):
+    def reset_states(self, env_indices=[]):
         """
         Resets the hidden states.
-        :param env_indices: indices of the environment hidden states to reset. If empty, reset all. 
+        :param env_indices: indices of the environment hidden states to reset. If empty, reset all.
         """
         num_env_ind = len(env_indices)
         if num_env_ind == 0:
             if self.policy.is_recurrent:
-                self.hidden_policy = to.zeros(self.env_num, self.policy.hidden_size,
-                                device=self.device).contiguous()
+                self.hidden_policy = to.zeros(self.env_num, self.policy.hidden_size, device=self.device).contiguous()
             if self.critic.is_recurrent:
-                self.hidden_critic = to.zeros(self.env_num, self.critic.hidden_size,
-                                device=self.device).contiguous()
+                self.hidden_critic = to.zeros(self.env_num, self.critic.hidden_size, device=self.device).contiguous()
         else:
             if self.policy.is_recurrent:
-                self.hidden_policy[env_indices] = to.zeros(num_env_ind, self.policy.hidden_size,
-                                device=self.device).contiguous()
+                self.hidden_policy[env_indices] = to.zeros(
+                    num_env_ind, self.policy.hidden_size, device=self.device
+                ).contiguous()
             if self.critic.is_recurrent:
-                self.hidden_critic[env_indices] = to.zeros(num_env_ind, self.critic.hidden_size,
-                                device=self.device).contiguous()
+                self.hidden_critic[env_indices] = to.zeros(
+                    num_env_ind, self.critic.hidden_size, device=self.device
+                ).contiguous()
 
     @property
     def expl_strat(self) -> NormalActNoiseExplStrat:
@@ -179,20 +183,31 @@ class PPOGAE(Algorithm):
         self.logger.add_value("avg rollout len", np.mean(all_lengths), 4)
         self.logger.add_value("num total samples", np.sum(all_lengths))
 
+        # Learning rate
+        if self.lower_lr and np.mean(rets) > 0.9 * self.traj_len:
+            self.lower_lr = False
+            self.scheduler.step()
+            self.expl_strat.std /= 2
+
         # Early stoping
-        if self.early_stopping and self._curr_iter > 50 and np.mean(rets) > 0.8 * self.traj_len and self.expl_strat.std.item() < 0.3:
-            print('Reached optimal policy! Early stop!' )
+        if (
+            self.early_stopping
+            and self._curr_iter > 50
+            and np.mean(rets) > 0.95 * self.traj_len
+            and self.expl_strat.std.item() < 0.2
+        ):
+            print("Reached optimal policy! Early stop!")
             self.end = True
             return
-
-        # Update policy and value function
-        self.update()
 
         # Save snapshot data
         self.make_snapshot(snapshot_mode, np.mean(rets), meta_info)
 
+        # Update policy and value function
+        self.update()
+
     def sample_batch(self) -> np.ndarray:
-        """ Sample batch of trajectories for training. """
+        """Sample batch of trajectories for training."""
         obss = self.envs.reset()
         self.reset_states()
 
@@ -217,9 +232,9 @@ class PPOGAE(Algorithm):
         return rets
 
     def update(self):
-        """ Update the policy using PPO. """
+        """Update the policy using PPO."""
         obs, act, rew, ret, adv, dones = self.envs.get_data(self.device)
-        
+
         # For recurrent pack observations
         if self.policy.is_recurrent:
             obs = obs.reshape(-1, self.traj_len, obs.shape[-1])
@@ -229,17 +244,17 @@ class PPOGAE(Algorithm):
                 start = 0
                 for end in section[1:]:
                     obs_list.append(obs[idx, start:end])
-                    lengths.append(end-start)
+                    lengths.append(end - start)
                     start = end
                 if start != self.traj_len:
                     obs_list.append(obs[idx, start:])
-                    lengths.append(self.traj_len-start)
+                    lengths.append(self.traj_len - start)
             obs = to.nn.utils.rnn.pad_sequence(obs_list)
             obs = to.nn.utils.rnn.pack_padded_sequence(obs, lengths=lengths, enforce_sorted=False)
 
         with to.no_grad():
             if self.policy.is_recurrent:
-                mean, _ = self.policy.rnn_layers(obs)   
+                mean, _ = self.policy.rnn_layers(obs)
                 mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
                 mean = to.cat([mean[:l, i] for i, l in enumerate(lens)], 0)
 
@@ -255,7 +270,7 @@ class PPOGAE(Algorithm):
 
             # Policy
             if self.policy.is_recurrent:
-                mean, _ = self.policy.rnn_layers(obs)   
+                mean, _ = self.policy.rnn_layers(obs)
                 mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
                 mean = to.cat([mean[:l, i] for i, l in enumerate(lens)], 0)
 
@@ -268,7 +283,7 @@ class PPOGAE(Algorithm):
 
             # Critic
             if self.critic.is_recurrent:
-                val, _ = self.critic.rnn_layers(obs)   
+                val, _ = self.critic.rnn_layers(obs)
                 val, lens = to.nn.utils.rnn.pad_packed_sequence(val)
                 val = to.cat([val[:l, i] for i, l in enumerate(lens)], 0)
 
@@ -278,10 +293,10 @@ class PPOGAE(Algorithm):
             else:
                 val = self.critic(obs)
             val = val.reshape(-1)
-            
+
             logp = dist.log_prob(act).sum(-1)
             loss_policy, kl = self.loss_fcn(logp, old_logp, adv)
-            #loss_policy += self.expl_strat.std.mean() * self.std_loss
+            # loss_policy += self.expl_strat.std.mean() * self.std_loss
 
             # Early stopping if kl divergence too high
             if kl > self.max_kl:
@@ -295,7 +310,7 @@ class PPOGAE(Algorithm):
 
     def train(self, snapshot_mode: str = "latest", seed: int = None, meta_info: dict = None):
         super().train(snapshot_mode, seed, meta_info)
-        
+
         # Close environments
         self.envs.close()
 
@@ -311,7 +326,6 @@ class PPOGAE(Algorithm):
             pyrado.save(self.env, "env.pkl", self.save_dir)
 
     def __getstate__(self):
-        self.envs
         # Remove the unpickleable elements from this algorithm instance
         tmp_envs = self.__dict__.pop("envs")
 
@@ -331,4 +345,6 @@ class PPOGAE(Algorithm):
         super().__setstate__(state)
 
         # Recover settings of environment
-        self.envs = Envs(state["cpu_num"], state["env_num"], state["env"], state["traj_len"], state["gamma"], state["lam"])
+        self.envs = Envs(
+            state["cpu_num"], state["env_num"], state["env"], state["traj_len"], state["gamma"], state["lam"]
+        )

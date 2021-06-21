@@ -179,7 +179,7 @@ class QQubeSwingUpSim(QQubeSim):
     def _create_task(self, task_args: dict) -> Task:
         # Define the task including the reward function
         state_des = task_args.get("state_des", np.array([0.0, np.pi, 0.0, 0.0]))
-        rew_fcn = QCartPoleSwingUpRewFcn(factor=0.9, max_dist = 1.0, max_act = 3.0, scales = [np.pi, 2.0])
+        rew_fcn = QCartPoleSwingUpRewFcn(factor=0.8, max_dist=1.0, max_act=5.0, scales=[np.pi, 2.0])
 
         return RadiallySymmDesStateTask(self.spec, state_des, rew_fcn, idcs=[1])
 
@@ -226,7 +226,7 @@ class QQubeStabSim(QQubeSim):
     def _create_task(self, task_args: dict) -> Task:
         # Define the task including the reward function
         state_des = task_args.get("state_des", np.array([0.0, np.pi, 0.0, 0.0]))
-        rew_fcn = QCartPoleSwingUpRewFcn(factor=0.9, max_dist = 1.0, max_act = 3.0, scales = [np.pi, 2.0])
+        rew_fcn = QCartPoleSwingUpRewFcn(factor=0.8, max_dist=1.0, max_act=5.0, scales=[np.pi, 2.0])
 
         return RadiallySymmDesStateTask(self.spec, state_des, rew_fcn, idcs=[1])
 

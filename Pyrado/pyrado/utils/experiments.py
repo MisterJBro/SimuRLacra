@@ -227,23 +227,16 @@ def load_experiment(
         # Policy
         policy = pyrado.load(f"{args.policy_name}.pt", ex_dir, obj=algo.policy, verbose=True)
         # Teachers
-        extra["teacher_policies"] = algo.teacher_policies
-        extra["teacher_envs"] = algo.teacher_envs
-        extra["teacher_expl_strats"] = algo.teacher_expl_strats
-        extra["teacher_critics"] = algo.teacher_critics
         extra["teacher_ex_dirs"] = algo.teacher_ex_dirs
 
     elif algo.name == "ppo_gae":
         # Environment
-        env = pyrado.load(None, "env", "pkl", ex_dir, None)
+        env = pyrado.load("env.pkl", ex_dir)
         # Policy
-        policy = pyrado.load(algo.policy, f"{args.policy_name}", "pt", ex_dir, None)
-        print_cbt(f"Loaded {osp.join(ex_dir, f'{args.policy_name}.pt')}", "g")
+        policy = pyrado.load(f"{args.policy_name}.pt", ex_dir, obj=algo.policy, verbose=True)
         # Extra (value function, exploration strategy)
-        extra["vfcn"] = pyrado.load(algo.critic, f"{args.vfcn_name}", "pt", ex_dir, None)
-        print_cbt(f"Loaded {osp.join(ex_dir, f'{args.vfcn_name}.pt')}", "g")
-        extra["expl_strat"] = pyrado.load(algo.expl_strat, f"expl_strat", "pt", ex_dir, None)
-        print_cbt(f"Loaded {osp.join(ex_dir, f'expl_strat.pt')}", "g")
+        extra["vfcn"] = pyrado.load(f"{args.vfcn_name}.pt", ex_dir, obj=algo.critic, verbose=True)
+        extra["expl_strat"] = pyrado.load(f"expl_strat.pt", ex_dir, obj=algo.expl_strat, verbose=True)
         extra["highest_avg_ret"] = algo._highest_avg_ret
 
     else:

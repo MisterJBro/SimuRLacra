@@ -46,6 +46,7 @@ from pyrado.utils.data_types import RenderMode
 from pyrado.utils.experiments import load_experiment
 from pyrado.utils.input_output import print_cbt
 from pyrado.utils.saving_loading import save
+from pyrado.policies.special.ensemble import EnsemblePolicy
 
 from datetime import datetime
 
@@ -57,7 +58,11 @@ if __name__ == "__main__":
     ex_dir = ask_for_experiment(hparam_list=args.show_hparams) if args.dir is None else args.dir
 
     # Load the policy (trained in simulation) and the environment (for constructing the real-world counterpart)
-    env_sim, policy, _ = load_experiment(ex_dir, args)
+    env_sim, _, _ = load_experiment(ex_dir, args)
+    
+    # Policy
+    policy_hparam = dict(num_policies=16, use_cuda=True)
+    policy = EnsemblePolicy(spec=env_sim.spec, **policy_hparam)
 
     eval_path = os.path.join(ex_dir, "eval")
     if not os.path.exists(eval_path):
