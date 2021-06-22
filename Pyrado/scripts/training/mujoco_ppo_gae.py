@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
     # Subroutine
     algo_hparam = dict(
-        max_iter=500,
+        max_iter=1000,
         tb_name="ppo",
         traj_len=args.max_steps,
         gamma=0.99,
@@ -71,7 +71,7 @@ if __name__ == "__main__":
         max_kl=0.05,
         std_init=1.0,
         clip_ratio=0.1,
-        lr=7e-5,
+        lr=1e-4,
     )
     algo = PPOGAE(ex_dir, env, policy, critic, **algo_hparam)
 
@@ -86,14 +86,3 @@ if __name__ == "__main__":
 
     # Jeeeha
     algo.train(snapshot_mode="best", seed=args.seed)
-    
-    # Test policy
-    #while True:
-    #    input('Press some key to continue:')
-    #    ro = rollout(
-    #        env,
-    #        algo.policy,
-    #        render_mode=RenderMode(text=True, video=True)
-    #    )
-
-    #    print(f'Return: {ro.undiscounted_return()}')
