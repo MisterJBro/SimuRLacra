@@ -191,7 +191,7 @@ class PPOGAE(Algorithm):
             self.early_stopping
             and self._curr_iter > 50
             and np.mean(rets) > 0.95 * self.traj_len
-            and self.expl_strat.std.item() < 0.2
+            and np.mean(self.expl_strat.std.detach().cpu().numpy()) < 0.2
         ):
             print("Reached optimal policy! Early stop!")
             self.end = True
