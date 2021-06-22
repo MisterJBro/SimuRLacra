@@ -175,13 +175,10 @@ class PPOGAE(Algorithm):
 
         # Log current progress
         self.logger.add_value("max return", np.max(rets), 4)
-        self.logger.add_value("median return", np.median(rets), 4)
         self.logger.add_value("avg return", np.mean(rets), 4)
         self.logger.add_value("min return", np.min(rets), 4)
-        self.logger.add_value("std return", np.std(rets), 4)
-        self.logger.add_value("std var", self.expl_strat.std.item(), 4)
+        self.logger.add_value("avg std var", np.mean(self.expl_strat.std.detach().cpu().numpy()), 4)
         self.logger.add_value("avg rollout len", np.mean(all_lengths), 4)
-        self.logger.add_value("num total samples", np.sum(all_lengths))
 
         # Learning rate
         if self.lower_lr and np.mean(rets) > 0.9 * self.traj_len:

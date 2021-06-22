@@ -46,37 +46,32 @@ if __name__ == "__main__":
     env = ActNormWrapper(env)
 
     # Policy
-    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
-    policy = LSTMPolicy(spec=env.spec, **policy_hparam)
-    #policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
-    #policy = FNNPolicy(spec=env.spec, **policy_hparam)
-
-    # Reduce weights of last layer, recommended by paper
-    for p in policy.output_layer.parameters():
-        with to.no_grad():
-            p /= 100
+    #policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
+    #policy = LSTMPolicy(spec=env.spec, **policy_hparam)
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+    policy = FNNPolicy(spec=env.spec, **policy_hparam)
 
     # Critic
-    critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.exp, use_cuda=use_cuda)
-    critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
-    #critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
-    #critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+    #critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, use_cuda=use_cuda)
+    #critic = LSTMPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
+    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
+    critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Subroutine
     algo_hparam = dict(
-        max_iter=100,
+        max_iter=500,
         tb_name="ppo",
         traj_len=args.max_steps,
         gamma=0.99,
         lam=0.97,
-        env_num=16,
+        env_num=args.num_cpus,
         cpu_num=args.num_cpus,
         epoch_num=40,
         device=args.device,
         max_kl=0.05,
         std_init=1.0,
         clip_ratio=0.1,
-        lr=2e-3,
+        lr=7e-5,
     )
     algo = PPOGAE(ex_dir, env, policy, critic, **algo_hparam)
 
@@ -93,12 +88,12 @@ if __name__ == "__main__":
     algo.train(snapshot_mode="best", seed=args.seed)
     
     # Test policy
-    while True:
-        input('Press some key to continue:')
-        ro = rollout(
-            env,
-            algo.policy,
-            render_mode=RenderMode(text=True, video=True)
-        )
+    #while True:
+    #    input('Press some key to continue:')
+    #    ro = rollout(
+    #        env,
+    #        algo.policy,
+    #        render_mode=RenderMode(text=True, video=True)
+    #    )
 
-        print(f'Return: {ro.undiscounted_return()}')
+    #    print(f'Return: {ro.undiscounted_return()}')
