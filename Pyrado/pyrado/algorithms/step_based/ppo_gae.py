@@ -48,7 +48,7 @@ class PPOGAE(Algorithm):
         clip_ratio: float = 0.25,
         lr: float = 3e-3,
         logger: StepLogger = None,
-        early_stopping: bool = True,
+        early_stopping: bool = False,
         std_loss: float = 0.1,
     ):
         """
@@ -181,7 +181,7 @@ class PPOGAE(Algorithm):
         self.logger.add_value("avg rollout len", np.mean(all_lengths), 4)
 
         # Learning rate
-        if self.lower_lr and np.mean(rets) > 0.9 * self.traj_len:
+        if self.early_stopping and self.lower_lr and np.mean(rets) > 0.9 * self.traj_len:
             self.lower_lr = False
             self.scheduler.step()
             self.expl_strat.std /= 2
