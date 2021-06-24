@@ -71,7 +71,7 @@ if __name__ == "__main__":
         max_kl=0.05,
         std_init=1.0,
         clip_ratio=0.1,
-        lr=1e-4,
+        lr=8e-5,
     )
     algo = PPOGAE(ex_dir, env, policy, critic, **algo_hparam)
 
