@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
     # Subroutine
     algo_hparam = dict(
-        max_iter=1000,
+        max_iter=2000,
         tb_name="ppo",
         traj_len=args.max_steps,
         gamma=0.99,
