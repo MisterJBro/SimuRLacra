@@ -101,7 +101,7 @@ if __name__ == "__main__":
             tb_name="ppo",
             traj_len=args.max_steps,
             gamma=0.999,
-            lam=0.97,
+            lam=0.997,
             env_num=30,
             cpu_num=12,  # int(mp.cpu_count()*2),
             epoch_num=40,
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             max_kl=0.05,
             std_init=1.0,
             clip_ratio=0.1,
-            lr=2e-3,
+            lr=1e-3,
             critic=critic,
         )
 
