@@ -52,7 +52,7 @@ from pyrado.utils.data_types import EnvSpec
 from multiprocessing import freeze_support
 
 parser = get_argparser()
-parser.add_argument("--freq", type=int, default=250)
+parser.add_argument("--freq", type=int, default=500)
 parser.add_argument("--max_iter_teacher", type=int, default=200)
 parser.add_argument("--train_teachers", action="store_true", default=False)
 parser.add_argument("--num_teachers", type=int, default=2)
@@ -96,7 +96,7 @@ if __name__ == "__main__":
             max_iter=args.max_iter_teacher,
             tb_name="ppo",
             traj_len=args.max_steps,
-            gamma=0.99,
+            gamma=0.999,
             lam=0.97,
             env_num=30,
             cpu_num=12,  # int(mp.cpu_count()*2),

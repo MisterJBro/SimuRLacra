@@ -38,15 +38,10 @@ if __name__ == "__main__":
     use_cuda = args.device == "cuda"
  
     # Environment
-    env_hparams = dict(dt=1 / 250.0, max_steps=4000)
+    env_hparams = dict(dt=1 / 500.0, max_steps=args.max_steps)
     env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
+    print(env)
     
-    # Print extra information about GPU
-    print('CUDA AVAILABLE', to.cuda.is_available())
-    import GPUtil
-    for gpu in GPUtil.getGPUs():
-        print('FOUND GPU: ', gpu.name, ' with LOAD: ', gpu.load*100)
-
     # Policy
     policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
     policy = LSTMPolicy(spec=env.spec, **policy_hparam)
@@ -73,7 +68,7 @@ if __name__ == "__main__":
         max_iter=100,
         tb_name="ppo",
         traj_len=args.max_steps,
-        gamma=0.99,
+        gamma=0.999,
         lam=0.97,
         env_num=32,
         cpu_num=args.num_cpus,

@@ -579,7 +579,7 @@ class ForwardVelocityRewFcnHumanoid(RewFcn):
 class QCartPoleSwingUpRewFcn(RewFcn):
     """Custom reward function for QCartPoleSwingUpSim."""
 
-    def __init__(self, factor: float = 0.9, max_dist: float = 0.20, max_act: float = 5.0, scales=[np.pi, 0.4]):
+    def __init__(self, factor: float = 0.9, max_dist: float = 0.20, max_act: float = 5.0, scales=[np.pi, 0.4, 1.0]):
         """
         Constructor
         :param factor: weighting factor of rotation error to position error
@@ -597,11 +597,11 @@ class QCartPoleSwingUpRewFcn(RewFcn):
 
         rotation_rew = (1 - np.abs(err_s[1] / self.scales[0])) ** 2
         distance_rew = (1 - np.abs(err_s[0] / self.scales[1])) ** 2
-        # action_rew = (1 - np.abs(err_s[0] / self.scales[1]))**2
+        action_rew = (1 - np.abs(err_a[0] / self.scales[2]))**2
 
         if np.abs(err_s[0]) >= self.max_dist or np.abs(err_a[0]) >= self.max_act:
             return 0.0
 
         # Reward should be roughly between [0, 1]
-        rew = self.factor * rotation_rew + (1 - self.factor) * distance_rew
+        rew = self.factor[0] * rotation_rew + self.factor[1] * distance_rew + self.factor[2] * action_rew
         return float(np.clip(rew, 0, 1))
