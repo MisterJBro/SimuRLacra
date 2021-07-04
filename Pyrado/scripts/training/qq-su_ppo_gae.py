@@ -40,7 +40,6 @@ if __name__ == "__main__":
     # Environment
     env_hparams = dict(dt=1 / 500.0, max_steps=args.max_steps)
     env = ActNormWrapper(QQubeSwingUpSim(**env_hparams))
-    print(env)
     
     # Policy
     policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)

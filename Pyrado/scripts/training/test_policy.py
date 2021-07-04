@@ -21,6 +21,9 @@ from pyrado.utils.experiments import load_experiment
 from pyrado.logger.experiment import Experiment, ask_for_experiment
 import multiprocessing as mp
 
+#For mujoco
+#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/[username]/.mujoco/mujoco200/bin
+#export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so
 
 if __name__ == "__main__":
     ex_dir = ask_for_experiment()

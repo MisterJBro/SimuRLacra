@@ -79,8 +79,10 @@ if __name__ == "__main__":
 
     if args.train_teachers:
         # Teacher Policy
-        teacher_policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
-        teacher_policy = LSTMPolicy(spec=env_real.spec, **teacher_policy_hparam)
+        #teacher_policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
+        #teacher_policy = LSTMPolicy(spec=env_real.spec, **teacher_policy_hparam)
+        teacher_policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+        teacher_policy = FNNPolicy(spec=env_real.spec, **teacher_policy_hparam)
 
         # Reduce weights of last layer, recommended by paper
         for p in teacher_policy.output_layer.parameters():
@@ -88,8 +90,10 @@ if __name__ == "__main__":
                 p /= 100
 
         # Teacher Critic
-        critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.exp, use_cuda=use_cuda)
-        critic = LSTMPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **critic_hparam)
+        #critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.exp, use_cuda=use_cuda)
+        #critic = LSTMPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **critic_hparam)
+        critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
+        critic = FNNPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **critic_hparam)
 
         # Teacher subroutine
         teacher_algo_hparam = dict(
