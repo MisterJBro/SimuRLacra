@@ -68,7 +68,7 @@ def default_randomizer(env_module, env_class):
     return register
 
 
-def create_default_randomizer(env: Union[SimEnv, EnvWrapper], randomizer_args: dict() = None) -> DomainRandomizer:
+def create_default_randomizer(env: Union[SimEnv, EnvWrapper], randomizer_args: dict() = {}) -> DomainRandomizer:
     """
     Create the default randomizer depending on the passed environment.
 
