@@ -108,7 +108,7 @@ class PPOGAE(Algorithm):
         self._expl_strat = self._expl_strat.to(self.device)
         self.optimizer = to.optim.Adam(
             [
-                {"params": self.policy.parameters()},
+                {"params": self._policy.parameters()},
                 {"params": self._expl_strat.noise.parameters()},
                 {"params": self.critic.parameters()},
             ],
@@ -133,14 +133,14 @@ class PPOGAE(Algorithm):
         """
         num_env_ind = len(env_indices)
         if num_env_ind == 0:
-            if self.policy.is_recurrent:
-                self.hidden_policy = to.zeros(self.env_num, self.policy.hidden_size, device=self.device).contiguous()
+            if self._policy.is_recurrent:
+                self.hidden_policy = to.zeros(self.env_num, self._policy.hidden_size, device=self.device).contiguous()
             if self.critic.is_recurrent:
                 self.hidden_critic = to.zeros(self.env_num, self.critic.hidden_size, device=self.device).contiguous()
         else:
-            if self.policy.is_recurrent:
+            if self._policy.is_recurrent:
                 self.hidden_policy[env_indices] = to.zeros(
-                    num_env_ind, self.policy.hidden_size, device=self.device
+                    num_env_ind, self._policy.hidden_size, device=self.device
                 ).contiguous()
             if self.critic.is_recurrent:
                 self.hidden_critic[env_indices] = to.zeros(
