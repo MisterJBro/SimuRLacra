@@ -53,7 +53,6 @@ from multiprocessing import freeze_support
 
 parser = get_argparser()
 parser.add_argument("--freq", type=int, default=500)
-parser.add_argument("--num_workers", type=int, default=2)
 parser.add_argument("--max_iter", type=int, default=200)
 parser.add_argument("--num_epochs", type=int, default=250)
 
@@ -65,60 +64,52 @@ if __name__ == "__main__":
     # Parse command line arguments
     args = parser.parse_args()
 
+     # Experiment (set seed before creating the modules)
+    ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{P2PDRL.name}")
+    
     # Set seed if desired
     pyrado.set_seed(args.seed, verbose=True)
     use_cuda = args.device == "cuda"
-    descr = f"_{args.max_steps}st_{args.freq}Hz_{args.num_teachers}t_{LSTMPolicy.name}"
-
+    descr = f"_{args.max_steps}st_{args.freq}Hz_{args.num_workers}t_{P2PDRL.name}"
+    
     # Environment
     env_hparams = dict(dt=1 / args.freq, max_steps=args.max_steps)
-    env_real = QQubeSwingUpSim(**env_hparams)
-    ex_dir = setup_experiment(QQubeSwingUpSim.name, f"{PDDR.name}{descr}")
+    env = QQubeSwingUpSim(**env_hparams)
+    env = ActNormWrapper(env)
+
+    # Policy
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+    policy = FNNPolicy(spec=env.spec, **policy_hparam)
+
+    # Reduce weights of last layer, recommended by paper
+    for p in policy.net.output_layer.parameters():
+        with to.no_grad():
+            p /= 100
+
+    # Critic
+    critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
+    critic = FNNPolicy(spec=EnvSpec(env.obs_space, ValueFunctionSpace), **critic_hparam)
 
     # Worker subroutine
-    worker_algo_hparam = dict(
+    algo_hparam = dict(
         max_iter=args.max_iter,
-        tb_name="ppo",
+        tb_name="p2pdrl",
         traj_len=args.max_steps,
-        gamma=0.999,
-        lam=0.997,
-        env_num=30,
-        cpu_num=12,  # int(mp.cpu_count()*2),
+        gamma=0.99,
+        lam=0.97,
+        env_num=32,
+        cpu_num=args.num_cpus,
         epoch_num=40,
         device=args.device,
         max_kl=0.05,
         std_init=1.0,
         clip_ratio=0.1,
-        lr=1e-3,
-        critic=critic,
-    )
-
-    worker_algo = PPOGAE
-
-    # Wrapper
-    randomizer = create_default_randomizer(env_real)
-    env_real = DomainRandWrapperLive(env_real, randomizer)
-    env_real = ActNormWrapper(env_real)
-
-    # Student policy
-    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
-    policy = LSTMPolicy(spec=env_real.spec, **policy_hparam)
-
-    # Subroutine
-    algo_hparam = dict(
-        max_iter=args.max_iter,
-        min_steps=args.max_steps,
-        num_cpu=20,  # int(mp.cpu_count()/2),
-        std_init=0.1,
-        num_epochs=args.num_epochs,
+        lr=2e-3,
+        alpha= 0.1,
         num_workers=args.num_workers,
-        device=args.device,
-        worker_algo=worker_algo,
-        worker_algo_hparam=worker_algo_hparam,
     )
-
-    algo = P2PDRL(ex_dir, env_real, policy, **algo_hparam)
-
+    algo = P2PDRL(ex_dir, env, policy, critic, **algo_hparam)
+    
     # Save the hyper-parameters
     save_dicts_to_yaml(
         dict(env=env_hparams, seed=args.seed),

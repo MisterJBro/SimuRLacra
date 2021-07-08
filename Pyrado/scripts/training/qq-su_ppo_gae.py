@@ -67,7 +67,7 @@ if __name__ == "__main__":
         max_iter=100,
         tb_name="ppo",
         traj_len=args.max_steps,
-        gamma=0.999,
+        gamma=0.99,
         lam=0.97,
         env_num=32,
         cpu_num=args.num_cpus,

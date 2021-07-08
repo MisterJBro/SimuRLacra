@@ -57,19 +57,24 @@ class P2PDRL(PPOGAE):
         env: Env,
         policy: Policy,
         critic: Policy,
-        logger: StepLogger = None,
+        max_iter: int,
+        tb_name: str = "p2pdrl",
+        traj_len: int = 8_000,
+        gamma: float = 0.99,
+        lam: float = 0.97,
+        env_num: int = 9,
+        cpu_num: int = 3,
+        epoch_num: int = 40,
         device: str = "cpu",
-        lr: float = 5e-4,
-        std_init: float = 0.1,
-        min_steps: int = 4000,
-        num_epochs: int = 10,
-        max_iter: int = 500,
+        max_kl: float = 0.05,
+        std_init: float = 0.6,
+        clip_ratio: float = 0.25,
+        lr: float = 3e-3,
+        logger: StepLogger = None,
+        early_stopping: bool = False,
+        alpha: float = 0.1,
         num_workers: int = 8,
-        alpha = 0.1,
-        num_cpu: int = 3,
-        worker_algo: callable = None,
-        worker_algo_hparam: dict() = None,
-        randomizer: DomainRandomizer = None,
+        weight_decay: float = 1e-5,
     ):
         """
         Constructor
@@ -100,20 +105,32 @@ class P2PDRL(PPOGAE):
 
         # Call Algorithm's constructor.
         super().__init__(
-            save_dir=save_dir, max_iter=max_iter, policy=policy, logger=logger, **worker_algo_hparam
+            save_dir=save_dir,
+            env=env,
+            policy=policy,
+            critic=critic,
+            max_iter=max_iter,
+            tb_name=tb_name,
+            traj_len=traj_len,
+            gamma=gamma,
+            lam=lam,
+            env_num=env_num,
+            cpu_num=cpu_num,
+            epoch_num=epoch_num,
+            device=device,
+            max_kl=max_kl,
+            std_init=std_init,
+            clip_ratio=clip_ratio,
+            lr=lr,
+            logger=logger,
+            early_stopping=early_stopping,
         )
 
         # Store the inputs
-        self.min_steps = min_steps
-        self.num_epochs = num_epochs
         self.num_workers = num_workers
-        self.num_cpu = num_cpu
         self.device = device
-        self.max_iter = max_iter
         self.alpha = alpha
 
-        self.algo = worker_algo
-        self.algo_hparam = worker_algo_hparam
         self.workers_policies = []
         self.worker_envs = []
         self.worker_expl_strats = []
@@ -133,7 +150,7 @@ class P2PDRL(PPOGAE):
                 {"params": c.parameters()},
             ],
             lr=lr,
-            weight_decay=1e-5,
+            weight_decay=weight_decay,
             )
 
             self.worker_policies.append(p)
@@ -146,6 +163,8 @@ class P2PDRL(PPOGAE):
 
         # Distillation loss criterion
         self.criterion = to.nn.KLDivLoss(log_target=True, reduction="batchmean")
+
+        print('LIEF DURCH BRUDAH')
 
     @property
     def expl_strat(self) -> NormalActNoiseExplStrat:
