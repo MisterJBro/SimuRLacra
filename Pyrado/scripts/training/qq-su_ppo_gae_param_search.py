@@ -37,12 +37,12 @@ if __name__ == "__main__":
     freq = 500.0
 
     for _ in range(1000):
-        max_iter = np.random.choice([100, 200, 300])  # 150 200 300
-        traj_len = np.random.choice([4000, 8000, 16000])  #  4000, 8000, 16000
+        max_iter = int(np.random.choice([100, 200, 300]))  # 150 200 300
+        traj_len = int(np.random.choice([4000, 8000, 16000]))  #  4000, 8000, 16000
         gamma = np.random.choice(np.arange(0.95, 1, 0.001))  #   0.95 .. < 1
         lam = np.random.choice(np.arange(0.8, 1, 0.001))  #   0.8 .. < 1
-        env_num = (np.random.choice([32, 64, 128]),)  #   64
-        epoch_num = np.random.choice([10, 20, 40, 80])  #   10, 20, 40, 80
+        env_num = int(np.random.choice([32, 64, 128]))  #   64
+        epoch_num = int(np.random.choice([10, 20, 40, 80]))  #   10, 20, 40, 80
         max_kl = np.random.choice(np.arange(0.01, 0.4, 0.01))  #   0.01 .. 0.4
         std_init = np.random.choice(np.arange(0.1, 2.0, 0.1))  #   0.1 .. 2.0
         clip_ratio = np.random.choice(np.arange(0.05, 0.3, 0.02))  #   0.05 .. 0.3

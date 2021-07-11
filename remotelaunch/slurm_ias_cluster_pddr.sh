@@ -34,7 +34,7 @@
 ## Always leave ntasks value to 1. This is only used for MPI, which is not supported now.
 #SBATCH --ntasks 1
 ## Specify the number of cores. The maximum is 32.
-#SBATCH --cpus-per-task 6
+#SBATCH --cpus-per-task 8
 ## Leave this if you want to use a GPU per job. Remove it if you do not need it.
 ##SBATCH --gres=gpu:rtx2080:1
 #SBATCH --mem-per-cpu=2048
@@ -56,4 +56,6 @@ cd "$SCRIPTS_DIR"
 
 # Run python scripts with provided command line arguments
 cd "training/"
-python mujoco_ppo_gae.py --device 'cpu' --max_steps 8000 --num_cpus 5 --env_name ant
+#python mujoco_ppo_gae.py --device 'cpu' --max_steps 8000 --num_cpus 5 --env_name ant
+python qq-su_pddr.py  --device 'cpu' --max_steps 4000 --num_cpus 8 --train_teachers --num_teachers 16
+#python qq-su_ppo_gae_param_search.py  --device 'cpu' --num_cpus 8

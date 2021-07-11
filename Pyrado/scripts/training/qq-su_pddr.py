@@ -85,14 +85,14 @@ if __name__ == "__main__":
         teacher_policy = FNNPolicy(spec=env_real.spec, **teacher_policy_hparam)
 
         # Reduce weights of last layer, recommended by paper
-        for p in teacher_policy.output_layer.parameters():
+        for p in teacher_policy.net.output_layer.parameters():
             with to.no_grad():
                 p /= 100
 
         # Teacher Critic
-        #critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.exp, use_cuda=use_cuda)
+        #critic_hparam = dict(hidden_size=64, num_recurrent_layers=1, use_cuda=use_cuda)
         #critic = LSTMPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **critic_hparam)
-        critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.exp)
+        critic_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu)
         critic = FNNPolicy(spec=EnvSpec(env_real.obs_space, ValueFunctionSpace), **critic_hparam)
 
         # Teacher subroutine
@@ -100,8 +100,8 @@ if __name__ == "__main__":
             max_iter=args.max_iter_teacher,
             tb_name="ppo",
             traj_len=args.max_steps,
-            gamma=0.999,
-            lam=0.997,
+            gamma=0.99,
+            lam=0.97,
             env_num=30,
             cpu_num=12,  # int(mp.cpu_count()*2),
             epoch_num=40,
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             max_kl=0.05,
             std_init=1.0,
             clip_ratio=0.1,
-            lr=1e-3,
+            lr=2e-3,
             critic=critic,
         )
 
@@ -119,6 +119,7 @@ if __name__ == "__main__":
         teacher_policy = None
         teacher_algo = None
         teacher_algo_hparam = None
+    print(env_real)
 
     # Wrapper
     randomizer = create_default_randomizer(env_real)
