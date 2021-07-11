@@ -215,15 +215,10 @@ class P2PDRL(PPOGAE):
         for _ in range(self.traj_len):
             obss = to.as_tensor(obss).to(self.device)
             with to.no_grad():
-                if self.expl_strat.is_recurrent:
-                    acts, self.hidden_policy = self.expl_strat(obss, self.hidden_policy.contiguous())
-                else:
-                    acts = self.expl_strat(obss)
+                acts = self.expl_strat(obss)
                 acts = acts.cpu().numpy()
-                if self.critic.is_recurrent:
-                    vals, self.hidden_critic = self.critic(obss, self.hidden_critic.contiguous())
-                else:
-                    vals = self.critic(obss)
+                
+                vals = self.critic(obss)
                 vals = vals.reshape(-1).cpu().numpy()
             obss, done_ind = self.envs.step(acts, vals)
             if len(done_ind) != 0:
@@ -237,67 +232,23 @@ class P2PDRL(PPOGAE):
         obs, act, rew, ret, adv, dones = self.envs.get_data(self.device)
         
         print(obs.shape, act.shape, rew.shape, ret.shape)
-        # Use only the respective observations 
         obs = obs.reshape(self.num_teachers, self.min_steps, -1)
         obs = obs[idx]
 
-        # For recurrent pack observations
-        if self.workers_policies[idx].is_recurrent:
-            obs = obs.reshape(-1, self.traj_len, obs.shape[-1])
-            obs_list = []
-            lengths = []
-            for idx, section in enumerate(dones):
-                start = 0
-                for end in section[1:]:
-                    obs_list.append(obs[idx, start:end])
-                    lengths.append(end - start)
-                    start = end
-                if start != self.traj_len:
-                    obs_list.append(obs[idx, start:])
-                    lengths.append(self.traj_len - start)
-            obs = to.nn.utils.rnn.pad_sequence(obs_list)
-            obs = to.nn.utils.rnn.pack_padded_sequence(obs, lengths=lengths, enforce_sorted=False)
 
         with to.no_grad():
-            if self.workers_policies[idx].is_recurrent:
-                mean, _ = self.workers_policies[idx].rnn_layers(obs)
-                mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
-                mean = to.cat([mean[:l, i] for i, l in enumerate(lens)], 0)
-
-                mean = self.workers_policies[idx].output_layer(mean)
-                if self.workers_policies[idx].output_nonlin is not None:
-                    mean = self.workers_policies[idx].output_nonlin(mean)
-            else:
-                mean = self.workers_policies[idx](obs)
+            mean = self.workers_policies[idx](obs)
             old_logp = self.worker_expl_strats[idx].action_dist_at(mean).log_prob(act).sum(-1)
 
         for i in range(self.epoch_num):
             self.worker_optimizer[idx].zero_grad()
 
             # Policy
-            if self.workers_policies[idx].is_recurrent:
-                mean, _ = self.workers_policies[idx].rnn_layers(obs)
-                mean, lens = to.nn.utils.rnn.pad_packed_sequence(mean)
-                mean = to.cat([mean[:l, i] for i, l in enumerate(lens)], 0)
-
-                mean = self.workers_policies[idx].output_layer(mean)
-                if self.workers_policies[idx].output_nonlin is not None:
-                    mean = self.workers_policies[idx].output_nonlin(mean)
-            else:
-                mean = self.workers_policies[idx](obs)
+            mean = self.workers_policies[idx](obs)
             dist = self.worker_expl_strats[idx].action_dist_at(mean)
 
             # Critic
-            if self.workers_critics[idx].is_recurrent:
-                val, _ = self.workers_critics[idx].rnn_layers(obs)
-                val, lens = to.nn.utils.rnn.pad_packed_sequence(val)
-                val = to.cat([val[:l, i] for i, l in enumerate(lens)], 0)
-
-                val = self.workers_critics[idx].output_layer(val)
-                if self.workers_critics[idx].output_nonlin is not None:
-                    val = self.workers_critics[idx].output_nonlin(val)
-            else:
-                val = self.workers_critics[idx](obs)
+            val = self.workers_critics[idx](obs)
             val = val.reshape(-1)
 
             logp = dist.log_prob(act).sum(-1)
