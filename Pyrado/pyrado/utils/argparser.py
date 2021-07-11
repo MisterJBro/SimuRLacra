@@ -107,7 +107,7 @@ def get_argparser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max_steps",
         type=int,
-        default=float("inf"),
+        default=4000,
         help="maximum number of time steps to execute the environment (default: infinite)",
     )
     parser.add_argument(

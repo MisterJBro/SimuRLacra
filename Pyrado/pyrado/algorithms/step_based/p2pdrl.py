@@ -131,22 +131,23 @@ class P2PDRL(PPOGAE):
         self.device = device
         self.alpha = alpha
 
-        self.workers_policies = []
+        self.worker_policies = []
         self.worker_envs = []
         self.worker_expl_strats = []
         self.worker_critics = []
         self.worker_ex_dirs = []
         self.worker_optimizer = []
+        self.randomizer = create_default_randomizer(env)
 
         # Add Worker policies, critics, optimizer and expl strats
-        for _ in range(self.num_workers):
+        for i in range(self.num_workers):
             p = deepcopy(policy)
             expl = NormalActNoiseExplStrat(p, std_init=std_init)
             c = deepcopy(critic)
             o = to.optim.Adam(
             [
                 {"params": p.parameters()},
-                {"params": expl.parameters()},
+                {"params": expl.noise.parameters()},
                 {"params": c.parameters()},
             ],
             lr=lr,
@@ -163,8 +164,6 @@ class P2PDRL(PPOGAE):
 
         # Distillation loss criterion
         self.criterion = to.nn.KLDivLoss(log_target=True, reduction="batchmean")
-
-        print('LIEF DURCH BRUDAH')
 
     @property
     def expl_strat(self) -> NormalActNoiseExplStrat:
@@ -191,6 +190,7 @@ class P2PDRL(PPOGAE):
 
         # Sample batch
         rets = self.sample_batch()
+        print('SAMPLED', rets)
 
         # Log current progress
         self.logger.add_value("max return", np.max(rets), 4)
@@ -206,6 +206,31 @@ class P2PDRL(PPOGAE):
         # Update policy and value function
         for i in range(self.num_workers):
             self.update(i)
+
+    def sample_batch(self) -> np.ndarray:
+        """Sample batch of trajectories for training."""
+        obss = self.envs.reset()
+        self.reset_states()
+
+        for _ in range(self.traj_len):
+            obss = to.as_tensor(obss).to(self.device)
+            with to.no_grad():
+                if self.expl_strat.is_recurrent:
+                    acts, self.hidden_policy = self.expl_strat(obss, self.hidden_policy.contiguous())
+                else:
+                    acts = self.expl_strat(obss)
+                acts = acts.cpu().numpy()
+                if self.critic.is_recurrent:
+                    vals, self.hidden_critic = self.critic(obss, self.hidden_critic.contiguous())
+                else:
+                    vals = self.critic(obss)
+                vals = vals.reshape(-1).cpu().numpy()
+            obss, done_ind = self.envs.step(acts, vals)
+            if len(done_ind) != 0:
+                self.reset_states(done_ind)
+
+        rets = self.envs.ret_and_adv()
+        return rets
 
     def update(self, idx):
         """Update one policy using PPO."""
@@ -302,13 +327,11 @@ class P2PDRL(PPOGAE):
 
         if meta_info is None:
             # This algorithm instance is not a subroutine of another algorithm
-            pyrado.save(self.env_real, "env.pkl", self.save_dir)
+            pyrado.save(self.env, "env.pkl", self.save_dir)
 
     def __getstate__(self):
         # Remove the unpickleable elements from this algorithm instance
-        tmp_teacher_policies = self.__dict__.pop("teacher_policies")
-        tmp_teacher_algo = self.__dict__.pop("teacher_algo")
-        tmp_envs = self.__dict__.pop("envs")
+        tmp_worker_policies = self.__dict__.pop("worker_policies")
 
         # Call Algorithm's __getstate__() without the unpickleable elements
         state_dict = super(P2PDRL, self).__getstate__()
@@ -317,9 +340,7 @@ class P2PDRL(PPOGAE):
         state_dict_copy = deepcopy(state_dict)
 
         # Insert them back
-        self.__dict__["teacher_policies"] = tmp_teacher_policies
-        self.__dict__["teacher_algo"] = tmp_teacher_algo
-        self.__dict__["envs"] = tmp_envs
+        self.__dict__["worker_policies"] = tmp_worker_policies
 
         return state_dict_copy
 
@@ -329,7 +350,7 @@ class P2PDRL(PPOGAE):
 
         # Recover settings of environment
         self.envs = Envs(
-            state["cpu_num"], state["env_num"], state["env"], state["traj_len"], state["gamma"], state["lam"], state["worker_envs"]
+            min(state["cpu_num"], state["num_workers"]), state["num_workers"], state["env"], state["traj_len"], state["gamma"], state["lam"], env_list=state["worker_envs"]
         )
 
     def set_envs(self):
@@ -337,17 +358,17 @@ class P2PDRL(PPOGAE):
         self.randomizer.randomize(num_samples=self.num_workers)
         params = self.randomizer.get_params(fmt="dict", dtype="numpy")
         self.worker_envs = []
-        for e in range(self.num_teachers):
+        for e in range(self.num_workers):
             self.worker_envs.append(deepcopy(self.env))
             print({key: value[e] for key, value in params.items()})
             self.worker_envs[e].domain_param = {key: value[e] for key, value in params.items()}
 
         self.envs = Envs(
-            min(self.num_cpu, self.num_workers),
-            self.num_teachers,
+            min(self.cpu_num, self.num_workers),
+            self.num_workers,
             self.env,
-            self.min_steps,
-            self.algo.gamma,
-            self.algo.lam,
+            self.traj_len,
+            self.gamma,
+            self.lam,
             env_list=self.worker_envs,
         )
