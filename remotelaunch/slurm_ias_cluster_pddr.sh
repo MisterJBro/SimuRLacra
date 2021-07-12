@@ -57,5 +57,5 @@ cd "$SCRIPTS_DIR"
 # Run python scripts with provided command line arguments
 cd "training/"
 #python mujoco_ppo_gae.py --device 'cpu' --max_steps 8000 --num_cpus 5 --env_name ant
-python qq-su_pddr.py  --device 'cpu' --max_steps 4000 --num_cpus 8 --train_teachers --num_teachers 16
+python qq-su_pddr.py  --device 'cpu' --max_steps 4000 --num_cpus 8 --train_teachers --num_teachers 16 --max_iter_teacher 150
 #python qq-su_ppo_gae_param_search.py  --device 'cpu' --num_cpus 8

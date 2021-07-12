@@ -181,21 +181,21 @@ class PPOGAE(Algorithm):
         self.logger.add_value("avg rollout len", np.mean(all_lengths), 4)
 
         # Learning rate
-        if self.early_stopping and self.lower_lr and np.mean(rets) > 0.9 * self.traj_len:
+        if self.early_stopping and self.lower_lr and np.mean(rets) > 0.8 * self.traj_len:
             self.lower_lr = False
             self.scheduler.step()
             self.expl_strat.std /= 2
 
         # Early stoping
-        if (
-            self.early_stopping
-            and self._curr_iter > 50
-            and np.mean(rets) > 0.95 * self.traj_len
-            and np.mean(self.expl_strat.std.detach().cpu().numpy()) < 0.2
-        ):
-            print("Reached optimal policy! Early stop!")
-            self.end = True
-            return
+        #if (
+        #    self.early_stopping
+        #    and self._curr_iter > 50
+        #    and np.mean(rets) > 0.95 * self.traj_len
+        #    and np.mean(self.expl_strat.std.detach().cpu().numpy()) < 0.2
+        #):
+        #    print("Reached optimal policy! Early stop!")
+        #    self.end = True
+        #    return
 
         # Save snapshot data
         self.make_snapshot(snapshot_mode, np.mean(rets), meta_info)

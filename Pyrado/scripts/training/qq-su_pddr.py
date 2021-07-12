@@ -102,7 +102,7 @@ if __name__ == "__main__":
             traj_len=args.max_steps,
             gamma=0.99,
             lam=0.97,
-            env_num=32,
+            env_num=48,
             cpu_num=args.num_cpus,
             epoch_num=40,
             device=args.device,
@@ -111,6 +111,7 @@ if __name__ == "__main__":
             clip_ratio=0.1,
             lr=2e-3,
             critic=critic,
+            early_stopping=True,
         )
 
         teacher_algo = PPOGAE
@@ -127,15 +128,17 @@ if __name__ == "__main__":
     env_real = ActNormWrapper(env_real)
 
     # Student policy
-    policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
-    policy = LSTMPolicy(spec=env_real.spec, **policy_hparam)
+    #policy_hparam = dict(hidden_size=64, num_recurrent_layers=1, output_nonlin=to.tanh, use_cuda=use_cuda)
+    #policy = LSTMPolicy(spec=env_real.spec, **policy_hparam)
+    policy_hparam = dict(hidden_sizes=[64, 64], hidden_nonlin=to.relu, output_nonlin=to.tanh)
+    policy = FNNPolicy(spec=env_real.spec, **teacher_policy_hparam)
 
     # Subroutine
     algo_hparam = dict(
         max_iter=args.max_iter,
         min_steps=args.max_steps,
-        num_cpu=20,  # int(mp.cpu_count()/2),
-        std_init=0.1,
+        num_cpu=args.num_cpus,
+        std_init=1.0,
         num_epochs=args.num_epochs,
         num_teachers=args.num_teachers,
         device=args.device,
