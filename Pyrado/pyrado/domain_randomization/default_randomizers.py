@@ -306,6 +306,7 @@ def create_default_randomizer_qq() -> DomainRandomizer:
         NormalDomainParam(name="Mp", mean=dp_nom["Mp"], std=dp_nom["Mp"] / 5, clip_lo=1e-4),
         NormalDomainParam(name="Lp", mean=dp_nom["Lp"], std=dp_nom["Lp"] / 5, clip_lo=1e-4),
         NormalDomainParam(name="Dp", mean=dp_nom["Dp"], std=dp_nom["Dp"] / 4, clip_lo=1e-9),
+        NormalDomainParam(name="dt", mean=dp_nom["dt"], std=dp_nom["dt"] / 4, clip_lo=1e-9)
     )
 
 

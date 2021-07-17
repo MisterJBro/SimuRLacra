@@ -118,7 +118,7 @@ class Env(ABC, Serializable):
         """Set the time step size."""
         if not dt > 0:
             raise pyrado.ValueErr(given=dt, g_constraint="0")
-        if not isinstance(dt, (float, int)):
+        if not isinstance(dt, (float, int, np.ndarray)):
             raise pyrado.TypeErr(given=dt, expected_type=[float, int])
         self._dt = float(dt)
 

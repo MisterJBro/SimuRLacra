@@ -65,6 +65,7 @@ class QQubeSim(SimPyEnv, Serializable):
             Dp=1e-6,  # pendulum link viscous damping [N*m*s/rad], original: 0.0005, identified: 1e-6
             V_thold_neg=0,  # min. voltage required to move the servo in negative the direction [V]
             V_thold_pos=0,  # min. voltage required to move the servo in positive the direction [V]
+            dt=0.002,  # time step size [s]
         )
 
     def _calc_constants(self):

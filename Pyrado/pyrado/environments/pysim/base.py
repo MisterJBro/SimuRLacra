@@ -115,6 +115,7 @@ class SimPyEnv(SimEnv, Serializable):
             raise pyrado.TypeErr(given=domain_param, expected_type=dict)
         # Update the parameters
         self._domain_param.update(domain_param)
+        self._set_domain_param_attrs(self._domain_param)
         self._calc_constants()
 
         # Update spaces
